@@ -297,7 +297,7 @@ Si encuentras algún problema o tienes sugerencias:
 - Describe el problema detalladamente
 - Incluye la versión de Python que usas
 
-- **GitHub**: https://github.com/sapoclay/fijaten-wp
-- **Autor**: entreunosyceros
+**GitHub**: https://github.com/sapoclay/fijaten-wp
+**Autor**: entreunosyceros
 
 ---
