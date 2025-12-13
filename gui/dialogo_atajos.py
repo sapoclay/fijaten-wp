@@ -15,7 +15,7 @@ class DialogoAtajos(ctk.CTkToplevel):
         
         # Configurar ventana
         self.title("⌨️ Atajos de Teclado - Fijaten-WP")
-        self.geometry("500x450")
+        self.geometry("500x550")
         self.resizable(False, False)
         
         # Hacer modal
@@ -72,10 +72,14 @@ class DialogoAtajos(ctk.CTkToplevel):
         # Definir atajos por categoría
         atajos = [
             ("📁 Archivo", [
+                (f"{self.mod_key}+S", "Guardar informe"),
+                (f"{self.mod_key}+P", "Exportar a PDF"),
+                (f"{self.mod_key}+H", "Exportar a HTML"),
                 (f"{self.mod_key}+Q", "Salir de la aplicación"),
             ]),
             ("🔧 Herramientas", [
                 (f"{self.mod_key}+M", "Abrir escaneo múltiple"),
+                (f"{self.mod_key}+L", "Ver historial de escaneos"),
             ]),
             ("⚙️ Preferencias", [
                 (f"{self.mod_key}+O", "Abrir opciones de escaneo"),
