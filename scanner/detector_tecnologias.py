@@ -233,7 +233,12 @@ class DetectorTecnologias:
             meta_generator = ""
             meta = soup.find('meta', attrs={'name': 'generator'})
             if meta:
-                meta_generator = meta.get('content', '').lower()
+                content = meta.get('content', '')
+                if content:
+                    # Puede ser string o lista, aseguramos que sea string
+                    if isinstance(content, list):
+                        content = content[0] if content else ''
+                    meta_generator = str(content).lower()
             
             tecnologias_encontradas = []
             
