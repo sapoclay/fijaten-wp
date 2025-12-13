@@ -5,8 +5,12 @@ Detecta si el sitio está protegido por un firewall de aplicación web
 
 import requests
 import re
+import urllib3
 from typing import Dict, Optional, List
 from .modelos import Vulnerabilidad, Severidad
+
+# Suprimir warnings de SSL para peticiones sin verificación
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class DetectorWAF:

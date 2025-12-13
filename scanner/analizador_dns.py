@@ -6,8 +6,12 @@ Obtiene información adicional del dominio
 import socket
 import re
 import requests
+import urllib3
 from typing import Dict, Optional, List
 from .modelos import Vulnerabilidad, Severidad, InfoDNS, InfoWHOIS
+
+# Suprimir warnings de SSL para peticiones sin verificación
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class AnalizadorDNS:

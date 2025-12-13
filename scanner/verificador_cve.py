@@ -6,8 +6,12 @@ Incluye enlaces a NVD, MITRE y búsqueda de CPEs
 
 import requests
 import re
+import urllib3
 from typing import List, Dict, Optional, Tuple
 from .modelos import Vulnerabilidad, Severidad
+
+# Suprimir warnings de SSL para peticiones sin verificación
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class VerificadorCVE:

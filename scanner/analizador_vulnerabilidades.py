@@ -7,10 +7,16 @@ import requests
 import re
 import ssl
 import socket
+import urllib3
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional, Tuple
 import concurrent.futures
+
+# Suprimir warnings de SSL cuando se hacen peticiones sin verificación
+# Esto es necesario porque algunos sitios tienen certificados inválidos
+# y necesitamos poder analizarlos de todos modos
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Importar clases desde modelos
 from .modelos import Severidad, Vulnerabilidad
