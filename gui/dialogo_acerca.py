@@ -27,15 +27,14 @@ class DialogoAcerca(ctk.CTkToplevel):
         
         # Configuración de la ventana
         self.title(f"Acerca de {APP_NAME}")
-        self.geometry("550x650")
+        self.geometry("550x720")
         self.resizable(False, False)
         
-        # Hacer la ventana modal
+        # Hacer la ventana modal (sin grab_set para evitar bloqueos)
         self.transient(parent)
-        self.grab_set()
         
         # Centrar la ventana respecto al padre
-        self.centrar_ventana(parent)
+        self.after(10, lambda: self.centrar_ventana(parent))
         
         # Crear contenido
         self.crear_contenido()
@@ -45,12 +44,15 @@ class DialogoAcerca(ctk.CTkToplevel):
         
         # Manejar cierre con Escape
         self.bind("<Escape>", lambda e: self.destroy())
+        
+        # Mantener la ventana al frente
+        self.lift()
+        self.attributes('-topmost', True)
+        self.after(100, lambda: self.attributes('-topmost', False))
     
     def centrar_ventana(self, parent):
         """Centra la ventana respecto a la ventana padre"""
-        self.update_idletasks()
-        
-        # Obtener dimensiones
+        # Dimensiones fijas
         ancho = 550
         alto = 720
         
@@ -63,6 +65,10 @@ class DialogoAcerca(ctk.CTkToplevel):
         # Calcular posición centrada
         x = padre_x + (padre_ancho - ancho) // 2
         y = padre_y + (padre_alto - alto) // 2
+        
+        # Asegurar que no se salga de la pantalla
+        x = max(0, x)
+        y = max(0, y)
         
         self.geometry(f"{ancho}x{alto}+{x}+{y}")
     

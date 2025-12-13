@@ -72,7 +72,7 @@ class DialogoAtajos(ctk.CTkToplevel):
         # Definir atajos por categoría
         atajos = [
             ("📁 Archivo", [
-                (f"{self.mod_key}+S", "Guardar informe"),
+                (f"{self.mod_key}+S", "Guardar informe (TXT)"),
                 (f"{self.mod_key}+P", "Exportar a PDF"),
                 (f"{self.mod_key}+H", "Exportar a HTML"),
                 (f"{self.mod_key}+Q", "Salir de la aplicación"),
@@ -92,6 +92,13 @@ class DialogoAtajos(ctk.CTkToplevel):
             ("🔍 Escaneo", [
                 ("Enter", "Iniciar escaneo (en campo de dominio)"),
                 ("Escape", "Cerrar ventanas flotantes"),
+            ]),
+            ("📝 Edición (campo URL)", [
+                (f"{self.mod_key}+V", "Pegar"),
+                (f"{self.mod_key}+C", "Copiar"),
+                (f"{self.mod_key}+X", "Cortar"),
+                (f"{self.mod_key}+A", "Seleccionar todo"),
+                ("Clic derecho", "Menú contextual"),
             ]),
         ]
         

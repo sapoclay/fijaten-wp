@@ -4,6 +4,8 @@ Widgets y componentes reutilizables
 """
 
 import customtkinter as ctk
+import webbrowser
+import re
 from typing import Callable, Optional
 
 
@@ -35,6 +37,7 @@ class FrameEntrada(ctk.CTkFrame):
     def __init__(self, parent, al_analizar: Callable):
         super().__init__(parent)
         self.grid_columnconfigure(1, weight=1)
+        self.al_analizar = al_analizar
         
         # Label
         self.etiqueta_dominio = ctk.CTkLabel(
@@ -54,6 +57,9 @@ class FrameEntrada(ctk.CTkFrame):
         self.entrada_dominio.grid(row=0, column=1, padx=10, pady=15, sticky="ew")
         self.entrada_dominio.bind("<Return>", lambda e: al_analizar())
         
+        # Configurar menú contextual (clic derecho)
+        self._configurar_menu_contextual()
+        
         # Botón de escanear
         self.boton_escanear = ctk.CTkButton(
             self,
@@ -64,6 +70,109 @@ class FrameEntrada(ctk.CTkFrame):
             command=al_analizar
         )
         self.boton_escanear.grid(row=0, column=2, padx=(10, 15), pady=15)
+    
+    def _configurar_menu_contextual(self):
+        """Configura el menú contextual para el campo de entrada"""
+        import tkinter as tk
+        
+        # Crear menú contextual nativo de tkinter
+        self.menu_contextual = tk.Menu(self, tearoff=0)
+        
+        # Opciones del menú
+        self.menu_contextual.add_command(
+            label="📋 Pegar",
+            command=self._pegar
+        )
+        self.menu_contextual.add_command(
+            label="📄 Copiar",
+            command=self._copiar
+        )
+        self.menu_contextual.add_command(
+            label="✂️ Cortar",
+            command=self._cortar
+        )
+        self.menu_contextual.add_separator()
+        self.menu_contextual.add_command(
+            label="🔘 Seleccionar todo",
+            command=self._seleccionar_todo
+        )
+        self.menu_contextual.add_separator()
+        self.menu_contextual.add_command(
+            label="🗑️ Limpiar",
+            command=self._limpiar
+        )
+        self.menu_contextual.add_separator()
+        self.menu_contextual.add_command(
+            label="🔍 Analizar",
+            command=self.al_analizar
+        )
+        
+        # Vincular clic derecho - usar after para evitar bloqueos
+        self.entrada_dominio.bind("<Button-3>", self._mostrar_menu_contextual)
+    
+    def _mostrar_menu_contextual(self, event):
+        """Muestra el menú contextual en la posición del clic"""
+        try:
+            self.entrada_dominio.focus_set()
+            # Usar after(1, ...) para evitar bloqueo del evento
+            self.after(1, lambda: self.menu_contextual.tk_popup(event.x_root, event.y_root))
+        except Exception:
+            pass
+    
+    def _pegar(self):
+        """Pega el contenido del portapapeles"""
+        try:
+            # Obtener texto del portapapeles
+            texto = self.winfo_toplevel().clipboard_get()
+            # Obtener posición actual del cursor
+            entry = self.entrada_dominio
+            # Insertar en la posición actual o al final
+            pos = entry._entry.index("insert")
+            contenido_actual = entry.get()
+            nuevo_contenido = contenido_actual[:pos] + texto + contenido_actual[pos:]
+            entry.delete(0, "end")
+            entry.insert(0, nuevo_contenido)
+            # Mover cursor al final del texto pegado
+            entry._entry.icursor(pos + len(texto))
+        except Exception as e:
+            print(f"Error al pegar: {e}")
+    
+    def _copiar(self):
+        """Copia el texto seleccionado al portapapeles"""
+        try:
+            # Intentar obtener selección
+            entry = self.entrada_dominio._entry
+            if entry.selection_present():
+                texto = entry.selection_get()
+                toplevel = self.winfo_toplevel()
+                toplevel.clipboard_clear()
+                toplevel.clipboard_append(texto)
+                toplevel.update()
+        except Exception as e:
+            print(f"Error al copiar: {e}")
+    
+    def _cortar(self):
+        """Corta el texto seleccionado"""
+        try:
+            entry = self.entrada_dominio._entry
+            if entry.selection_present():
+                texto = entry.selection_get()
+                toplevel = self.winfo_toplevel()
+                toplevel.clipboard_clear()
+                toplevel.clipboard_append(texto)
+                toplevel.update()
+                entry.delete("sel.first", "sel.last")
+        except Exception as e:
+            print(f"Error al cortar: {e}")
+    
+    def _seleccionar_todo(self):
+        """Selecciona todo el texto"""
+        self.entrada_dominio._entry.select_range(0, "end")
+        self.entrada_dominio._entry.icursor("end")
+    
+    def _limpiar(self):
+        """Limpia el campo de entrada"""
+        self.entrada_dominio.delete(0, "end")
     
     def obtener_dominio(self) -> str:
         """Obtiene el dominio ingresado"""
@@ -79,6 +188,9 @@ class FrameEntrada(ctk.CTkFrame):
 
 class FrameResultados(ctk.CTkFrame):
     """Frame de resultados con pestañas"""
+    
+    # Fuentes monoespaciadas en orden de preferencia
+    FUENTES_MONO = ["DejaVu Sans Mono", "Liberation Mono", "Ubuntu Mono", "Consolas", "Courier New", "monospace"]
     
     def __init__(self, parent, mensaje_inicial: str):
         super().__init__(parent)
@@ -100,34 +212,41 @@ class FrameResultados(ctk.CTkFrame):
             pestana.grid_columnconfigure(0, weight=1)
             pestana.grid_rowconfigure(0, weight=1)
         
+        # Obtener fuente monoespaciada disponible en el sistema
+        fuente_mono = self._obtener_fuente_mono()
+        
         # Crear textboxes para cada tab (solo lectura)
         self.texto_resumen = ctk.CTkTextbox(
             self.pestana_resumen, 
-            font=ctk.CTkFont(family="Consolas", size=13),
+            font=ctk.CTkFont(family=fuente_mono, size=13),
             state="disabled"  # Solo lectura
         )
         self.texto_resumen.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
         self.texto_detalles = ctk.CTkTextbox(
             self.pestana_detalles, 
-            font=ctk.CTkFont(family="Consolas", size=13),
+            font=ctk.CTkFont(family=fuente_mono, size=13),
             state="disabled"  # Solo lectura
         )
         self.texto_detalles.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
         self.texto_tecnico = ctk.CTkTextbox(
             self.pestana_tecnico, 
-            font=ctk.CTkFont(family="Consolas", size=13),
+            font=ctk.CTkFont(family=fuente_mono, size=13),
             state="disabled"  # Solo lectura
         )
         self.texto_tecnico.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
         self.texto_acciones = ctk.CTkTextbox(
             self.pestana_acciones, 
-            font=ctk.CTkFont(family="Consolas", size=13),
+            font=ctk.CTkFont(family=fuente_mono, size=13),
             state="disabled"  # Solo lectura
         )
         self.texto_acciones.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        
+        # Configurar enlaces clicables en todos los textboxes
+        for textbox in self.obtener_cajas_texto():
+            self._configurar_enlaces(textbox)
         
         # Mostrar mensaje inicial
         self.mostrar_mensaje(mensaje_inicial)
@@ -136,11 +255,118 @@ class FrameResultados(ctk.CTkFrame):
         """Retorna todas las cajas de texto"""
         return [self.texto_resumen, self.texto_detalles, self.texto_tecnico, self.texto_acciones]
     
+    def _obtener_fuente_mono(self) -> str:
+        """Obtiene la primera fuente monoespaciada disponible en el sistema"""
+        import tkinter as tk
+        import tkinter.font as tkfont
+        
+        # Crear ventana temporal para consultar fuentes
+        temp_root = None
+        try:
+            # Intentar obtener las fuentes disponibles
+            fuentes_disponibles = tkfont.families()
+            
+            # Buscar la primera fuente monoespaciada disponible
+            for fuente in self.FUENTES_MONO:
+                if fuente.lower() in [f.lower() for f in fuentes_disponibles]:
+                    return fuente
+            
+            # Si ninguna está disponible, usar monospace como fallback
+            return "monospace"
+        except Exception:
+            return "monospace"
+    
+    def _configurar_enlaces(self, textbox: ctk.CTkTextbox):
+        """Configura el textbox para detectar y hacer clicables los enlaces"""
+        # Obtener el widget Text interno de customtkinter
+        widget_interno = textbox._textbox
+        
+        # Configurar el tag para enlaces
+        widget_interno.tag_configure(
+            "enlace",
+            foreground="#3391ff",
+            underline=True
+        )
+        
+        # Cambiar cursor al pasar sobre enlaces
+        widget_interno.tag_bind("enlace", "<Enter>", 
+            lambda e: widget_interno.configure(cursor="hand2"))
+        widget_interno.tag_bind("enlace", "<Leave>", 
+            lambda e: widget_interno.configure(cursor="xterm"))
+        
+        # Abrir enlace al hacer clic
+        widget_interno.tag_bind("enlace", "<Button-1>", 
+            lambda e: self._abrir_enlace(widget_interno, e))
+    
+    def _abrir_enlace(self, widget, event):
+        """Abre el enlace en el navegador por defecto"""
+        # Obtener el índice del clic
+        index = widget.index(f"@{event.x},{event.y}")
+        
+        # Buscar los rangos del tag "enlace" en esa posición
+        tag_ranges = widget.tag_ranges("enlace")
+        
+        for i in range(0, len(tag_ranges), 2):
+            start = tag_ranges[i]
+            end = tag_ranges[i + 1]
+            
+            # Verificar si el clic está dentro de este rango
+            if widget.compare(start, "<=", index) and widget.compare(index, "<", end):
+                # Obtener el texto del enlace
+                url = widget.get(start, end)
+                try:
+                    webbrowser.open(url)
+                except Exception as e:
+                    print(f"Error al abrir enlace: {e}")
+                break
+    
+    def _detectar_y_marcar_enlaces(self, textbox: ctk.CTkTextbox):
+        """Detecta URLs en el texto y las marca con el tag 'enlace'"""
+        widget_interno = textbox._textbox
+        
+        # Eliminar tags de enlaces anteriores
+        widget_interno.tag_remove("enlace", "1.0", "end")
+        
+        # Obtener todo el texto
+        contenido = widget_interno.get("1.0", "end-1c")
+        
+        # Patrón para detectar URLs
+        patron_url = r'https?://[^\s<>"\'{}|\\^`\[\]()]+'
+        
+        # Encontrar todas las URLs con sus posiciones
+        urls_encontradas = []
+        for match in re.finditer(patron_url, contenido):
+            url = match.group()
+            # Limpiar puntuación final
+            while url and url[-1] in '.,;:!?)]}':
+                url = url[:-1]
+            if url and len(url) >= 10:
+                urls_encontradas.append(url)
+        
+        # Marcar cada URL encontrada usando búsqueda en el widget
+        for url in urls_encontradas:
+            inicio_busqueda = "1.0"
+            while True:
+                pos_inicio = widget_interno.search(url, inicio_busqueda, stopindex="end", exact=True)
+                if not pos_inicio:
+                    break
+                
+                # Calcular posición final
+                pos_fin = f"{pos_inicio}+{len(url)}c"
+                
+                # Aplicar tag
+                widget_interno.tag_add("enlace", pos_inicio, pos_fin)
+                
+                # Continuar buscando después de esta ocurrencia
+                inicio_busqueda = pos_fin
+    
     def _escribir_en_textbox(self, textbox: ctk.CTkTextbox, contenido: str):
         """Escribe contenido en un textbox de solo lectura"""
         textbox.configure(state="normal")  # Habilitar temporalmente
         textbox.delete("1.0", "end")
         textbox.insert("1.0", contenido)
+        # Detectar y marcar enlaces clicables
+        self._detectar_y_marcar_enlaces(textbox)
         textbox.configure(state="disabled")  # Volver a solo lectura
     
     def mostrar_mensaje(self, mensaje: str):

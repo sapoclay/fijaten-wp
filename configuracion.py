@@ -24,6 +24,16 @@ Características principales:
 • Análisis de listado de directorios
 • Detección de plugins y temas vulnerables
 • Verificación de cabeceras de seguridad HTTP
+• Detección de tecnologías web (CMS, frameworks, lenguajes)
+
+Funcionalidades adicionales:
+• Exportación de informes a PDF y HTML
+• Historial de escaneos con filtrado y comparación
+• Escaneo múltiple de dominios
+• Enlaces clicables en los informes
+• Menú contextual en campo de URL (clic derecho)
+• Atajos de teclado personalizados
+• Modo claro/oscuro
 
 Los informes generados son comprensibles tanto para usuarios 
 técnicos como para aquellos sin conocimientos especializados."""
@@ -47,7 +57,9 @@ THEME_MODE = "dark"
 THEME_COLOR = "blue"
 
 # Configuración de fuentes
-FONT_FAMILY_MONO = "Consolas"
+# Fuentes monoespaciadas en orden de preferencia (la primera disponible se usa)
+FONT_FAMILY_MONO = "monospace"  # En Linux usa la fuente monoespaciada del sistema
+FONT_FAMILY_MONO_FALLBACKS = ["DejaVu Sans Mono", "Liberation Mono", "Consolas", "Courier New", "monospace"]
 FONT_SIZE_TITLE = 28
 FONT_SIZE_SUBTITLE = 14
 FONT_SIZE_NORMAL = 14
@@ -69,50 +81,48 @@ COLORS = {
 # Mensajes
 MESSAGES = {
     "welcome": """
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                                                                              ║
-║                       🔒 FIJATEN-WP 🔒                                       ║
-║                 Analizador de Seguridad WordPress                            ║
-║                                                                              ║
-╠══════════════════════════════════════════════════════════════════════════════╣
-║                                                                              ║
-║   Bienvenido al analizador de seguridad de WordPress.                        ║
-║                                                                              ║
-║   Este programa analiza las vulnerabilidades más comunes en sitios           ║
-║   WordPress y genera un informe claro y comprensible.                        ║
-║                                                                              ║
-║   📝 INSTRUCCIONES:                                                          ║
-║                                                                              ║
-║   1. Escribe el dominio del sitio WordPress en la barra superior             ║
-║      Ejemplo: misitioweb.com o https://misitioweb.com                        ║
-║                                                                              ║
-║   2. Haz clic en "Analizar" o presiona Enter                                 ║
-║                                                                              ║
-║   3. Espera mientras se realiza el análisis (puede tardar unos segundos)     ║
-║                                                                              ║
-║   4. Revisa los resultados en las diferentes pestañas:                       ║
-║      • Resumen: Vista general para todos los públicos                        ║
-║      • Detalles: Explicación simple de cada problema                         ║
-║      • Técnico: Información técnica detallada                                ║
-║      • Plan de Acción: Pasos a seguir ordenados por prioridad                ║
-║                                                                              ║
-║   🔍 VULNERABILIDADES QUE ANALIZA:                                           ║
-║                                                                              ║
-║   • Versión de WordPress expuesta o desactualizada                           ║
-║   • Configuración SSL/HTTPS                                                  ║
-║   • XML-RPC habilitado (puede usarse para ataques)                           ║
-║   • Enumeración de usuarios                                                  ║
-║   • Archivos de configuración expuestos                                      ║
-║   • Modo debug activo                                                        ║
-║   • Listado de directorios                                                   ║
-║   • Plugins y temas vulnerables                                              ║
-║   • Cabeceras de seguridad HTTP                                              ║
-║   • Y más...                                                                 ║
-║                                                                              ║
-║   ⚠️  NOTA: Este análisis es informativo y no intrusivo.                     ║
-║       Solo analiza información pública del sitio.                            ║
-║                                                                              ║
-╚══════════════════════════════════════════════════════════════════════════════╝
++------------------------------------------------------------------------------+
+|                          FIJATEN-WP                                          |
+|                  Analizador de Seguridad WordPress                           |
++------------------------------------------------------------------------------+
+
+  Bienvenido al analizador de seguridad de WordPress.
+
+  Este programa analiza las vulnerabilidades mas comunes en sitios
+  WordPress y genera un informe claro y comprensible.
+
+  INSTRUCCIONES:
+
+  1. Escribe el dominio del sitio WordPress en la barra superior
+     Ejemplo: misitioweb.com o https://misitioweb.com
+
+  2. Haz clic en "Analizar" o presiona Enter
+
+  3. Espera mientras se realiza el analisis (puede tardar unos segundos)
+
+  4. Revisa los resultados en las diferentes pestanas:
+     - Resumen: Vista general para todos los publicos
+     - Detalles: Explicacion simple de cada problema
+     - Tecnico: Informacion tecnica detallada
+     - Plan de Accion: Pasos a seguir ordenados por prioridad
+
+  VULNERABILIDADES QUE ANALIZA:
+
+  - Version de WordPress expuesta o desactualizada
+  - Configuracion SSL/HTTPS
+  - XML-RPC habilitado (puede usarse para ataques)
+  - Enumeracion de usuarios
+  - Archivos de configuracion expuestos
+  - Modo debug activo
+  - Listado de directorios
+  - Plugins y temas vulnerables
+  - Cabeceras de seguridad HTTP
+  - Y mas...
+
+  NOTA: Este analisis es informativo y no intrusivo.
+        Solo analiza informacion publica del sitio.
+
++------------------------------------------------------------------------------+
 """,
     "ready": "Listo para analizar",
     "analyzing": "Analizando...",

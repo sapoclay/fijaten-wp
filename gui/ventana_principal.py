@@ -32,6 +32,7 @@ from gui.historial_escaneos import obtener_historial
 from gui.exportador_pdf import obtener_exportador_pdf
 from gui.exportador_html import obtener_exportador_html
 from gui.grafico_puntuacion import FrameGraficoPuntuacion
+from gui.icono_bandeja import crear_icono_bandeja
 
 # Inicializar gestor de temas (aplica el tema guardado)
 gestor_temas = obtener_gestor_temas()
@@ -77,6 +78,9 @@ class VentanaPrincipal(ctk.CTk):
         
         # Crear la interfaz
         self._crear_interfaz()
+        
+        # Inicializar icono en bandeja del sistema
+        self.icono_bandeja = crear_icono_bandeja(self)
         
         # Manejar cierre de ventana
         self.protocol("WM_DELETE_WINDOW", self.salir)
@@ -132,6 +136,9 @@ class VentanaPrincipal(ctk.CTk):
                 "Hay un análisis en curso. ¿Deseas salir de todos modos?"
             ):
                 return
+        # Detener icono de bandeja
+        if hasattr(self, 'icono_bandeja') and self.icono_bandeja:
+            self.icono_bandeja.detener()
         self.destroy()
     
     def mostrar_acerca_de(self):

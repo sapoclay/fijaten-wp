@@ -269,13 +269,15 @@ class ExportadorPDF:
                     vuln_data = [
                         [Paragraph(f"<b>{i}. {vuln.nombre}</b>", estilo_sev)],
                         [Paragraph(f"<b>Severidad:</b> {severidad_str}", estilo_normal)],
-                        [Paragraph(f"<b>Descripción:</b> {vuln.descripcion}", estilo_normal)],
-                        [Paragraph(f"<b>Explicación:</b> {vuln.explicacion_simple}", estilo_normal)],
-                        [Paragraph(f"<b>Recomendación:</b> {vuln.recomendacion}", estilo_normal)],
+                        [Paragraph(f"<b>Descripción:</b> {self._escapar_html(vuln.descripcion)}", estilo_normal)],
+                        [Paragraph(f"<b>Explicación:</b> {self._escapar_html(vuln.explicacion_simple)}", estilo_normal)],
+                        [Paragraph(f"<b>Recomendación:</b> {self._escapar_html(vuln.recomendacion)}", estilo_normal)],
                     ]
                     
                     if vuln.detalles:
-                        vuln_data.append([Paragraph(f"<b>Detalles:</b> {vuln.detalles}", estilo_normal)])
+                        # Convertir saltos de línea a <br/> para el PDF
+                        detalles_formateados = self._formatear_detalles(vuln.detalles)
+                        vuln_data.append([Paragraph(f"<b>Detalles:</b><br/>{detalles_formateados}", estilo_normal)])
                     
                     tabla_vuln = Table(vuln_data, colWidths=[15*cm])
                     tabla_vuln.setStyle(TableStyle([
@@ -340,6 +342,40 @@ class ExportadorPDF:
             
         except Exception as e:
             raise Exception(f"Error al generar PDF: {str(e)}")
+    
+    def _escapar_html(self, texto: str) -> str:
+        """Escapa caracteres especiales HTML y convierte saltos de línea"""
+        if not texto:
+            return ""
+        # Escapar caracteres HTML especiales
+        texto = texto.replace('&', '&amp;')
+        texto = texto.replace('<', '&lt;')
+        texto = texto.replace('>', '&gt;')
+        # Convertir saltos de línea a <br/>
+        texto = texto.replace('\n', '<br/>')
+        return texto
+    
+    def _formatear_detalles(self, detalles: str) -> str:
+        """Formatea los detalles para que se muestren correctamente en el PDF"""
+        if not detalles:
+            return ""
+        
+        # Escapar caracteres HTML especiales primero
+        detalles = detalles.replace('&', '&amp;')
+        detalles = detalles.replace('<', '&lt;')
+        detalles = detalles.replace('>', '&gt;')
+        
+        # Convertir saltos de línea a <br/>
+        detalles = detalles.replace('\n', '<br/>')
+        
+        # Convertir bullets • a puntos con sangría
+        detalles = detalles.replace('• ', '<br/>&nbsp;&nbsp;&nbsp;• ')
+        
+        # Limpiar <br/> duplicados
+        while '<br/><br/><br/>' in detalles:
+            detalles = detalles.replace('<br/><br/><br/>', '<br/><br/>')
+        
+        return detalles
     
     def _crear_grafico_puntuacion(self, puntuacion: int):
         """Crea un gráfico visual de la puntuación"""

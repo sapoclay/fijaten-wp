@@ -4,6 +4,9 @@ urllib3>=1.26.0
 customtkinter>=5.2.0
 Pillow>=9.0.0
 
+# Para icono en bandeja del sistema
+pystray>=0.19.0
+
 # Opcional: para exportar a PDF
 # pip install reportlab
 reportlab>=4.0.0
