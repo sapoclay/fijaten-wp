@@ -27,12 +27,20 @@ class BarraMenu:
     
     def __init__(self, parent: ctk.CTk, on_exit: Callable, on_about: Callable, 
                  on_options: Optional[Callable] = None,
-                 on_escaneo_multiple: Optional[Callable] = None):
+                 on_escaneo_multiple: Optional[Callable] = None,
+                 on_exportar_pdf: Optional[Callable] = None,
+                 on_exportar_html: Optional[Callable] = None,
+                 on_historial: Optional[Callable] = None,
+                 on_guardar: Optional[Callable] = None):
         self.parent = parent
         self.al_salir = on_exit
         self.al_acerca_de = on_about
         self.al_opciones = on_options
         self.al_escaneo_multiple = on_escaneo_multiple
+        self.al_exportar_pdf = on_exportar_pdf
+        self.al_exportar_html = on_exportar_html
+        self.al_historial = on_historial
+        self.al_guardar = on_guardar
         
         # Obtener gestores
         self.gestor_temas = obtener_gestor_temas()
@@ -68,6 +76,46 @@ class BarraMenu:
         menu_archivo = tk.Menu(self.barra_menu, tearoff=0)
         self.barra_menu.add_cascade(label="Archivo", menu=menu_archivo)
         
+        # Guardar informe
+        menu_archivo.add_command(
+            label="💾 Guardar Informe...",
+            command=self._guardar_informe,
+            accelerator=f"{MOD_KEY_DISPLAY}+S"
+        )
+        self._vincular_atajo("s", self._guardar_informe)
+        
+        menu_archivo.add_separator()
+        
+        # Submenú Exportar
+        menu_exportar = tk.Menu(menu_archivo, tearoff=0)
+        menu_archivo.add_cascade(label="📤 Exportar", menu=menu_exportar)
+        
+        menu_exportar.add_command(
+            label="📄 Exportar a PDF...",
+            command=self._exportar_pdf,
+            accelerator=f"{MOD_KEY_DISPLAY}+P"
+        )
+        self._vincular_atajo("p", self._exportar_pdf)
+        
+        menu_exportar.add_command(
+            label="🌐 Exportar a HTML...",
+            command=self._exportar_html,
+            accelerator=f"{MOD_KEY_DISPLAY}+H"
+        )
+        self._vincular_atajo("h", self._exportar_html)
+        
+        menu_archivo.add_separator()
+        
+        # Historial
+        menu_archivo.add_command(
+            label="📚 Historial de Escaneos...",
+            command=self._abrir_historial,
+            accelerator=f"{MOD_KEY_DISPLAY}+L"
+        )
+        self._vincular_atajo("l", self._abrir_historial)
+        
+        menu_archivo.add_separator()
+        
         menu_archivo.add_command(
             label="Salir",
             command=self.al_salir,
@@ -76,6 +124,26 @@ class BarraMenu:
         
         # Vincular atajo de teclado multiplataforma
         self._vincular_atajo("q", self.al_salir)
+    
+    def _guardar_informe(self):
+        """Guarda el informe en texto"""
+        if self.al_guardar:
+            self.al_guardar()
+    
+    def _exportar_pdf(self):
+        """Exporta el informe a PDF"""
+        if self.al_exportar_pdf:
+            self.al_exportar_pdf()
+    
+    def _exportar_html(self):
+        """Exporta el informe a HTML"""
+        if self.al_exportar_html:
+            self.al_exportar_html()
+    
+    def _abrir_historial(self):
+        """Abre el diálogo de historial"""
+        if self.al_historial:
+            self.al_historial()
     
     def _crear_menu_herramientas(self):
         """Crea el menú Herramientas"""

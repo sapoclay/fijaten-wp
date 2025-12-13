@@ -25,8 +25,13 @@ from gui.barra_menu import BarraMenu
 from gui.dialogo_acerca import DialogoAcerca
 from gui.dialogo_opciones import DialogoOpciones, obtener_verificaciones_activas
 from gui.dialogo_escaneo_multiple import DialogoEscaneoMultiple
+from gui.dialogo_historial import DialogoHistorial
 from gui.gestor_temas import obtener_gestor_temas
 from gui.notificaciones import notificar_escaneo_completado
+from gui.historial_escaneos import obtener_historial
+from gui.exportador_pdf import obtener_exportador_pdf
+from gui.exportador_html import obtener_exportador_html
+from gui.grafico_puntuacion import FrameGraficoPuntuacion
 
 # Inicializar gestor de temas (aplica el tema guardado)
 gestor_temas = obtener_gestor_temas()
@@ -48,6 +53,14 @@ class VentanaPrincipal(ctk.CTk):
         self.vulnerabilidades = []
         self.info_sitio = {}
         self.informe_completo = ""
+        self.dominio_actual = ""
+        self.puntuacion_actual = 0
+        self.conteo_severidad = {}
+        
+        # Obtener gestores
+        self.historial = obtener_historial()
+        self.exportador_pdf = obtener_exportador_pdf()
+        self.exportador_html = obtener_exportador_html()
         
         # Crear menú
         self.barra_menu = BarraMenu(
@@ -55,7 +68,11 @@ class VentanaPrincipal(ctk.CTk):
             on_exit=self.salir,
             on_about=self.mostrar_acerca_de,
             on_options=self.mostrar_opciones,
-            on_escaneo_multiple=self.mostrar_escaneo_multiple
+            on_escaneo_multiple=self.mostrar_escaneo_multiple,
+            on_exportar_pdf=self.exportar_pdf,
+            on_exportar_html=self.exportar_html,
+            on_historial=self.mostrar_historial,
+            on_guardar=self.guardar_informe
         )
         
         # Crear la interfaz
@@ -208,8 +225,18 @@ class VentanaPrincipal(ctk.CTk):
             generador = GeneradorInformes(dominio, self.vulnerabilidades, self.info_sitio)
             self.informe_completo = generador.generar_informe_completo()
             
-            # Guardar puntuación para notificación
+            # Guardar puntuación y conteo para exportación
             self.puntuacion_actual = generador.calcular_puntuacion_seguridad()
+            self.conteo_severidad = generador.contar_vulnerabilidades_por_severidad()
+            self.dominio_actual = dominio
+            
+            # Guardar en historial
+            self.historial.guardar_escaneo(
+                dominio, 
+                self.vulnerabilidades, 
+                self.info_sitio, 
+                self.puntuacion_actual
+            )
             
             # Mostrar resultados en la UI
             self.after(0, lambda: self._mostrar_resultados(generador))
@@ -435,6 +462,9 @@ Como este sitio no es WordPress, considera:
         self.vulnerabilidades = []
         self.info_sitio = {}
         self.informe_completo = ""
+        self.dominio_actual = ""
+        self.puntuacion_actual = 0
+        self.conteo_severidad = {}
         
         if mostrar_mensaje:
             self.frame_resultados.mostrar_mensaje(f"\n{MESSAGES['cleaned']}")
@@ -475,3 +505,109 @@ Como este sitio no es WordPress, considera:
                 self.frame_pie.establecer_estado(f"✅ Informe guardado: {os.path.basename(ruta_archivo)}")
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo guardar el informe:\n{str(e)}")
+    
+    # ═══════════════════════════════════════════════════════════════════
+    # EXPORTACIÓN
+    # ═══════════════════════════════════════════════════════════════════
+    
+    def exportar_pdf(self):
+        """Exporta el informe a PDF"""
+        if not self.vulnerabilidades and not self.dominio_actual:
+            messagebox.showwarning("Aviso", "No hay resultados para exportar.\nRealiza un escaneo primero.")
+            return
+        
+        # Verificar si reportlab está instalado
+        if not self.exportador_pdf.esta_disponible():
+            respuesta = messagebox.askyesno(
+                "Dependencia Requerida",
+                "Para exportar a PDF necesitas instalar 'reportlab'.\n\n"
+                "¿Deseas ver las instrucciones de instalación?"
+            )
+            if respuesta:
+                messagebox.showinfo(
+                    "Instrucciones",
+                    "Ejecuta el siguiente comando:\n\n"
+                    "pip install reportlab\n\n"
+                    "Después reinicia la aplicación."
+                )
+            return
+        
+        # Nombre de archivo
+        dominio_limpio = "".join(c if c.isalnum() else "_" for c in self.dominio_actual)
+        fecha = datetime.now().strftime("%Y%m%d_%H%M%S")
+        nombre_default = f"informe_fijaten_{dominio_limpio}_{fecha}.pdf"
+        
+        ruta_archivo = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            initialfile=nombre_default,
+            filetypes=[("Archivo PDF", "*.pdf")]
+        )
+        
+        if ruta_archivo:
+            try:
+                self.frame_pie.establecer_estado("📄 Generando PDF...")
+                self.update()
+                
+                self.exportador_pdf.exportar(
+                    ruta_archivo,
+                    self.dominio_actual,
+                    self.vulnerabilidades,
+                    self.info_sitio,
+                    self.puntuacion_actual,
+                    self.conteo_severidad
+                )
+                
+                messagebox.showinfo("Éxito", f"PDF exportado correctamente:\n{ruta_archivo}")
+                self.frame_pie.establecer_estado(f"✅ PDF exportado: {os.path.basename(ruta_archivo)}")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo exportar a PDF:\n{str(e)}")
+                self.frame_pie.establecer_estado("❌ Error al exportar PDF")
+    
+    def exportar_html(self):
+        """Exporta el informe a HTML"""
+        if not self.vulnerabilidades and not self.dominio_actual:
+            messagebox.showwarning("Aviso", "No hay resultados para exportar.\nRealiza un escaneo primero.")
+            return
+        
+        # Nombre de archivo
+        dominio_limpio = "".join(c if c.isalnum() else "_" for c in self.dominio_actual)
+        fecha = datetime.now().strftime("%Y%m%d_%H%M%S")
+        nombre_default = f"informe_fijaten_{dominio_limpio}_{fecha}.html"
+        
+        ruta_archivo = filedialog.asksaveasfilename(
+            defaultextension=".html",
+            initialfile=nombre_default,
+            filetypes=[("Archivo HTML", "*.html")]
+        )
+        
+        if ruta_archivo:
+            try:
+                self.frame_pie.establecer_estado("🌐 Generando HTML...")
+                self.update()
+                
+                self.exportador_html.exportar(
+                    ruta_archivo,
+                    self.dominio_actual,
+                    self.vulnerabilidades,
+                    self.info_sitio,
+                    self.puntuacion_actual,
+                    self.conteo_severidad
+                )
+                
+                messagebox.showinfo("Éxito", f"HTML exportado correctamente:\n{ruta_archivo}")
+                self.frame_pie.establecer_estado(f"✅ HTML exportado: {os.path.basename(ruta_archivo)}")
+                
+                # Preguntar si abrir en navegador
+                if messagebox.askyesno("Abrir", "¿Deseas abrir el informe en el navegador?"):
+                    import webbrowser
+                    webbrowser.open(f"file://{ruta_archivo}")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo exportar a HTML:\n{str(e)}")
+                self.frame_pie.establecer_estado("❌ Error al exportar HTML")
+    
+    def mostrar_historial(self):
+        """Muestra el diálogo de historial de escaneos"""
+        dominio_actual = self.frame_entrada.obtener_dominio()
+        DialogoHistorial(self, dominio_actual=dominio_actual)
