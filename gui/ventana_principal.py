@@ -197,7 +197,11 @@ class VentanaPrincipal(ctk.CTk):
             
             # Verificar si hubo error
             if 'error' in self.info_sitio:
-                self.after(0, lambda: self._mostrar_error(self.info_sitio['error']))
+                # Verificar si hay tecnologías detectadas (sitio no WordPress)
+                if self.info_sitio.get('no_es_wordpress') and 'informe_tecnologias' in self.info_sitio:
+                    self.after(0, lambda: self._mostrar_tecnologias_detectadas(self.info_sitio))
+                else:
+                    self.after(0, lambda: self._mostrar_error(self.info_sitio['error']))
                 return
             
             # Generar informe
@@ -285,6 +289,139 @@ Sugerencias:
         # Usar el método de FrameResultados que maneja solo lectura
         self.frame_resultados.mostrar_mensaje(contenido_error)
         self.frame_pie.establecer_estado(f"❌ Error: {mensaje}")
+    
+    def _mostrar_tecnologias_detectadas(self, info_sitio: dict):
+        """Muestra las tecnologías detectadas cuando el sitio no es WordPress"""
+        informe = info_sitio.get('informe_tecnologias', '')
+        tecnologias = info_sitio.get('tecnologias_detectadas', {})
+        
+        # Contar total de tecnologías detectadas
+        total_detectadas = sum(len(v) if isinstance(v, list) else (1 if v else 0) 
+                              for v in tecnologias.values())
+        
+        contenido = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║              🔍 ANÁLISIS DE TECNOLOGÍAS WEB                       ║
+╚══════════════════════════════════════════════════════════════════╝
+
+⚠️  Este sitio NO utiliza WordPress, pero hemos detectado las
+    siguientes tecnologías:
+
+{informe}
+
+{'─' * 70}
+
+ℹ️  NOTA: Fijaten-WP está diseñado específicamente para analizar
+    vulnerabilidades en sitios WordPress. Para este tipo de sitio,
+    recomendamos utilizar herramientas de análisis especializadas
+    en las tecnologías detectadas.
+
+💡 Sugerencias:
+    • Para sitios Joomla: utilizar herramientas como joomscan
+    • Para sitios Drupal: utilizar droopescan
+    • Para aplicaciones React/Vue: revisar cabeceras de seguridad
+    • Para sitios con Shopify/WooCommerce: revisar configuración SSL
+"""
+        
+        # Mostrar en todas las pestañas
+        self.frame_resultados.establecer_contenido(
+            resumen=contenido,
+            detalles=f"""
+🔍 EXPLICACIÓN SIMPLE
+{'─' * 50}
+
+Hemos analizado el sitio web y NO es WordPress.
+
+{informe}
+
+¿Qué significa esto?
+Fijaten-WP está especializado en encontrar problemas de seguridad
+en sitios WordPress. Como este sitio usa otras tecnologías,
+te recomendamos buscar herramientas específicas para analizarlo.
+""",
+            tecnico=f"""
+📋 INFORMACIÓN TÉCNICA
+{'─' * 50}
+
+{informe}
+
+Datos técnicos detectados:
+{self._formatear_tecnologias_tecnico(tecnologias)}
+""",
+            acciones=f"""
+📋 RECOMENDACIONES
+{'─' * 50}
+
+Como este sitio no es WordPress, considera:
+
+1. Buscar escáneres de seguridad específicos para las
+   tecnologías detectadas.
+
+2. Revisar las cabeceras de seguridad HTTP del sitio.
+
+3. Verificar que el certificado SSL esté correctamente
+   configurado.
+
+4. Comprobar que el sitio no esté en listas negras de
+   malware o spam.
+
+5. Si administras el sitio, mantén actualizadas todas
+   las tecnologías y dependencias.
+"""
+        )
+        
+        # Mostrar estado informativo
+        self.frame_pie.establecer_estado(
+            f"ℹ️ Sitio no WordPress. {total_detectadas} tecnologías detectadas."
+        )
+        self.frame_pie.establecer_progreso(1)
+    
+    def _formatear_tecnologias_tecnico(self, tecnologias: dict) -> str:
+        """Formatea las tecnologías para la vista técnica"""
+        lineas = []
+        
+        # CMS
+        if tecnologias.get('cms'):
+            cms = tecnologias['cms']
+            lineas.append(f"\n📦 CMS/Plataforma: {cms.get('icono', '')} {cms.get('nombre', 'Desconocido')}")
+            lineas.append(f"   Confianza: {cms.get('confianza', 0)}%")
+        
+        # Framework
+        if tecnologias.get('framework'):
+            fw = tecnologias['framework']
+            lineas.append(f"\n🛠️ Framework: {fw.get('icono', '')} {fw.get('nombre', 'Desconocido')}")
+            lineas.append(f"   Confianza: {fw.get('confianza', 0)}%")
+        
+        # Lenguaje
+        if tecnologias.get('lenguaje'):
+            lang = tecnologias['lenguaje']
+            lineas.append(f"\n💻 Lenguaje: {lang.get('icono', '')} {lang.get('nombre', 'Desconocido')}")
+            lineas.append(f"   Confianza: {lang.get('confianza', 0)}%")
+        
+        # Frontend
+        if tecnologias.get('frontend'):
+            lineas.append("\n🎨 Frontend:")
+            for f in tecnologias['frontend']:
+                lineas.append(f"   • {f.get('icono', '')} {f.get('nombre', 'Desconocido')} ({f.get('confianza', 0)}%)")
+        
+        # Servidor
+        if tecnologias.get('servidor'):
+            srv = tecnologias['servidor']
+            lineas.append(f"\n🖥️ Servidor: {srv.get('icono', '')} {srv.get('nombre', 'Desconocido')}")
+        
+        # Otras
+        if tecnologias.get('otras'):
+            lineas.append("\n🔧 Otras tecnologías:")
+            for o in tecnologias['otras']:
+                lineas.append(f"   • {o.get('icono', '')} {o.get('nombre', 'Desconocido')} ({o.get('confianza', 0)}%)")
+        
+        # Detalles adicionales
+        if tecnologias.get('detalles'):
+            lineas.append("\n📋 Detalles de detección:")
+            for d in tecnologias['detalles']:
+                lineas.append(f"   {d}")
+        
+        return '\n'.join(lineas) if lineas else "No se detectaron tecnologías específicas."
     
     def _finalizar_escaneo(self):
         """Restaura la interfaz después del escaneo"""

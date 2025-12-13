@@ -29,6 +29,7 @@ from .verificador_cve import VerificadorCVE
 from .verificador_blacklist import VerificadorBlacklist
 from .analizador_dns import AnalizadorDNS
 from .detector_waf import DetectorWAF
+from .detector_tecnologias import DetectorTecnologias
 
 class AnalizadorWordPress:
     """Analizador de vulnerabilidades para sitios WordPress"""
@@ -51,6 +52,7 @@ class AnalizadorWordPress:
         self.verificador_blacklist = VerificadorBlacklist(self.session, self.timeout)
         self.analizador_dns = AnalizadorDNS(self.session, self.timeout)
         self.detector_waf = DetectorWAF(self.session, self.timeout)
+        self.detector_tecnologias = DetectorTecnologias(self.session, self.timeout)
         
     def _normalizar_dominio(self, dominio: str) -> str:
         """Normaliza el dominio añadiendo protocolo si es necesario"""
@@ -1067,7 +1069,20 @@ class AnalizadorWordPress:
         # Verificar si es WordPress
         if not self.verificar_es_wordpress():
             self._registrar_mensaje("⚠️ No se detectó WordPress en este sitio")
-            return [], {'error': 'No se detectó WordPress en este sitio'}
+            self._registrar_mensaje("🔍 Analizando tecnologías del sitio web...")
+            
+            # Detectar qué tecnologías usa el sitio
+            tecnologias = self.detector_tecnologias.detectar_tecnologia(self.dominio)
+            informe_tecnologias = self.detector_tecnologias.generar_resumen(tecnologias)
+            
+            self._registrar_mensaje(informe_tecnologias)
+            
+            return [], {
+                'error': 'No se detectó WordPress en este sitio',
+                'tecnologias_detectadas': tecnologias,
+                'informe_tecnologias': informe_tecnologias,
+                'no_es_wordpress': True
+            }
         
         self._registrar_mensaje("✅ Sitio WordPress detectado")
         
