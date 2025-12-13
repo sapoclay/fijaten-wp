@@ -162,8 +162,12 @@ fijaten-wp/
 | `Ctrl+O` | Abrir opciones de escaneo |
 | `Ctrl+M` | Abrir escaneo múltiple |
 | `Ctrl+T` | Alternar modo claro/oscuro |
+| `Ctrl+K` | Mostrar atajos de teclado |
 | `F1` | Mostrar "Acerca de" |
 | `Enter` | Iniciar escaneo (en campo de dominio) |
+| `Escape` | Cerrar ventanas flotantes |
+
+> **Nota:** En macOS usa `Cmd` en lugar de `Ctrl`
 
 ## 📸 Capturas de pantalla
 

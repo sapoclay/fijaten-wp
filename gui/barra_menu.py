@@ -5,10 +5,21 @@ Menú superior de la aplicación
 
 import customtkinter as ctk
 import tkinter as tk
+import platform
 from typing import Callable, Optional
 
 from gui.gestor_temas import obtener_gestor_temas, TEMAS_APARIENCIA
 from gui.notificaciones import obtener_notificador
+from gui.dialogo_atajos import DialogoAtajos
+
+
+# Detectar sistema operativo para atajos de teclado
+ES_MAC = platform.system() == "Darwin"
+ES_WINDOWS = platform.system() == "Windows"
+
+# Tecla modificadora según SO
+MOD_KEY = "Command" if ES_MAC else "Control"
+MOD_KEY_DISPLAY = "Cmd" if ES_MAC else "Ctrl"
 
 
 class BarraMenu:
@@ -41,6 +52,17 @@ class BarraMenu:
         self._crear_menu_preferencias()
         self._crear_menu_ayuda()
     
+    def _vincular_atajo(self, tecla: str, callback: Callable):
+        """Vincula un atajo de teclado de forma multiplataforma"""
+        # Vincular con Control (Windows/Linux)
+        self.parent.bind(f"<Control-{tecla.lower()}>", lambda e: callback())
+        self.parent.bind(f"<Control-{tecla.upper()}>", lambda e: callback())
+        
+        # Vincular también con Command en macOS
+        if ES_MAC:
+            self.parent.bind(f"<Command-{tecla.lower()}>", lambda e: callback())
+            self.parent.bind(f"<Command-{tecla.upper()}>", lambda e: callback())
+    
     def _crear_menu_archivo(self):
         """Crea el menú Archivo"""
         menu_archivo = tk.Menu(self.barra_menu, tearoff=0)
@@ -49,12 +71,11 @@ class BarraMenu:
         menu_archivo.add_command(
             label="Salir",
             command=self.al_salir,
-            accelerator="Ctrl+Q"
+            accelerator=f"{MOD_KEY_DISPLAY}+Q"
         )
         
-        # Vincular atajo de teclado
-        self.parent.bind("<Control-q>", lambda e: self.al_salir())
-        self.parent.bind("<Control-Q>", lambda e: self.al_salir())
+        # Vincular atajo de teclado multiplataforma
+        self._vincular_atajo("q", self.al_salir)
     
     def _crear_menu_herramientas(self):
         """Crea el menú Herramientas"""
@@ -64,12 +85,11 @@ class BarraMenu:
         menu_herramientas.add_command(
             label="🌐 Escaneo Múltiple...",
             command=self._abrir_escaneo_multiple,
-            accelerator="Ctrl+M"
+            accelerator=f"{MOD_KEY_DISPLAY}+M"
         )
         
-        # Vincular atajo de teclado
-        self.parent.bind("<Control-m>", lambda e: self._abrir_escaneo_multiple())
-        self.parent.bind("<Control-M>", lambda e: self._abrir_escaneo_multiple())
+        # Vincular atajo de teclado multiplataforma
+        self._vincular_atajo("m", self._abrir_escaneo_multiple)
     
     def _abrir_escaneo_multiple(self):
         """Abre el diálogo de escaneo múltiple"""
@@ -84,7 +104,7 @@ class BarraMenu:
         menu_preferencias.add_command(
             label="⚙️ Opciones de Escaneo...",
             command=self._abrir_opciones,
-            accelerator="Ctrl+O"
+            accelerator=f"{MOD_KEY_DISPLAY}+O"
         )
         
         menu_preferencias.add_separator()
@@ -124,12 +144,11 @@ class BarraMenu:
         menu_apariencia.add_command(
             label="🔄 Alternar Claro/Oscuro",
             command=self._alternar_tema,
-            accelerator="Ctrl+T"
+            accelerator=f"{MOD_KEY_DISPLAY}+T"
         )
         
         # Vincular atajo de teclado para alternar tema
-        self.parent.bind("<Control-t>", lambda e: self._alternar_tema())
-        self.parent.bind("<Control-T>", lambda e: self._alternar_tema())
+        self._vincular_atajo("t", self._alternar_tema)
         
         menu_preferencias.add_separator()
         
@@ -152,8 +171,7 @@ class BarraMenu:
         )
         
         # Vincular atajo de teclado
-        self.parent.bind("<Control-o>", lambda e: self._abrir_opciones())
-        self.parent.bind("<Control-O>", lambda e: self._abrir_opciones())
+        self._vincular_atajo("o", self._abrir_opciones)
     
     def _cambiar_tema(self, modo: str):
         """Cambia el tema de la aplicación"""
@@ -178,16 +196,29 @@ class BarraMenu:
         if self.al_opciones:
             self.al_opciones()
     
+    def _mostrar_atajos(self):
+        """Muestra el diálogo de atajos de teclado"""
+        DialogoAtajos(self.parent)
+    
     def _crear_menu_ayuda(self):
         """Crea el menú Ayuda"""
         menu_ayuda = tk.Menu(self.barra_menu, tearoff=0)
         self.barra_menu.add_cascade(label="Ayuda", menu=menu_ayuda)
         
         menu_ayuda.add_command(
-            label="Acerca de...",
+            label="⌨️ Atajos de Teclado...",
+            command=self._mostrar_atajos,
+            accelerator=f"{MOD_KEY_DISPLAY}+K"
+        )
+        
+        menu_ayuda.add_separator()
+        
+        menu_ayuda.add_command(
+            label="ℹ️ Acerca de...",
             command=self.al_acerca_de,
             accelerator="F1"
         )
         
-        # Vincular atajo de teclado
+        # Vincular atajos de teclado
+        self._vincular_atajo("k", self._mostrar_atajos)
         self.parent.bind("<F1>", lambda e: self.al_acerca_de())
