@@ -10,10 +10,10 @@ from PIL import Image
 import sys
 from typing import TYPE_CHECKING, Any, Optional
 
-# Añadir directorio padre al path
+# Añadir directorio al path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Importar pystray de forma segura
+# Importar pystray para motrar el icono
 pystray: Any = None
 item: Any = None
 PYSTRAY_DISPONIBLE = False
@@ -160,7 +160,7 @@ def crear_icono_bandeja(ventana_principal) -> IconoBandeja:
     Args:
         ventana_principal: Referencia a la ventana principal
         
-    Returns:
+    Devuelve:
         Instancia de IconoBandeja
     """
     icono = IconoBandeja(ventana_principal)
