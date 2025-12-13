@@ -1,5 +1,7 @@
 # Fijaten-WP
 
+<img width="1024" height="1024" alt="logo" src="https://github.com/user-attachments/assets/db27b713-20bb-4c0b-87fc-687578a294ce" />
+
 Este es un pequeño programa para analizar las vulnerabilidades de WordPress más conocidas y posiblemente más básicas.
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
@@ -7,6 +9,8 @@ Este es un pequeño programa para analizar las vulnerabilidades de WordPress má
 ![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)
 
 Fijaten-WP permite analizar las vulnerabilidades más comunes y críticas de cualquier sitio WordPress. Genera informes claros y comprensibles tanto para usuarios técnicos como no técnicos y así poder buscar una solución.
+
+<img width="1920" height="1046" alt="about-fijaten-wp" src="https://github.com/user-attachments/assets/f79dada5-4af9-49ae-8268-c76feccb52e3" />
 
 ## Características
 
@@ -216,6 +220,8 @@ fijaten-wp/
 | 🔵 | INFO | Información |
 
 ## Atajos de teclado
+
+<img width="1915" height="1048" alt="atajos-teclado" src="https://github.com/user-attachments/assets/a67e7f6e-a1f4-45cb-847b-c55c7af6b697" />
 
 | Atajo | Acción |
 |-------|--------|
