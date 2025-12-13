@@ -154,6 +154,7 @@ OPCIONES_DISPONIBLES = {
 
 
 def cargar_opciones() -> Dict:
+    
     """Carga las opciones guardadas o devuelve las predeterminadas"""
     try:
         if CONFIG_FILE.exists():
@@ -175,6 +176,7 @@ def cargar_opciones() -> Dict:
 
 
 def guardar_opciones(opciones: Dict):
+    
     """Guarda las opciones en archivo"""
     try:
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
@@ -184,6 +186,7 @@ def guardar_opciones(opciones: Dict):
 
 
 def obtener_verificaciones_activas() -> list:
+    
     """Devuelve lista de nombres de verificaciones activas"""
     opciones = cargar_opciones()
     return [clave for clave, valor in opciones.items() if valor.get("activo", True)]
@@ -233,7 +236,7 @@ class DialogoOpciones(ctk.CTkToplevel):
         
         ctk.CTkLabel(
             frame_titulo,
-            text="⚙️ Configurar Verificaciones",
+            text="⚙️ Configurar verificaciones",
             font=ctk.CTkFont(size=20, weight="bold")
         ).pack(anchor="w")
         
@@ -427,7 +430,7 @@ class DialogoOpciones(ctk.CTkToplevel):
             self.on_save()
         
         messagebox.showinfo(
-            "Opciones Guardadas",
+            "Opciones guardadas",
             f"Se guardaron las preferencias.\n\n"
             f"Verificaciones activas: {activas}/{total}"
         )
