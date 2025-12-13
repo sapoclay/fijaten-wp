@@ -1,0 +1,295 @@
+"""
+Fijaten-WP - Ventana Principal
+Ventana principal de la aplicación
+"""
+
+import customtkinter as ctk
+from tkinter import filedialog, messagebox
+import threading
+from datetime import datetime
+import os
+import sys
+from pathlib import Path
+
+# Añadir directorio padre al path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from configuracion import (
+    APP_NAME, WINDOW_TITLE, WINDOW_SIZE, WINDOW_MIN_SIZE,
+    THEME_MODE, THEME_COLOR, MESSAGES
+)
+from scanner.analizador_vulnerabilidades import AnalizadorWordPress
+from scanner.generador_informes import GeneradorInformes
+from gui.componentes import FrameCabecera, FrameEntrada, FrameResultados, FramePie
+from gui.barra_menu import BarraMenu
+from gui.dialogo_acerca import DialogoAcerca
+
+# Configuración del tema
+ctk.set_appearance_mode(THEME_MODE)
+ctk.set_default_color_theme(THEME_COLOR)
+
+
+class VentanaPrincipal(ctk.CTk):
+    """Ventana principal de Fijaten-WP"""
+    
+    def __init__(self):
+        super().__init__()
+        
+        # Configuración de la ventana principal
+        self.title(WINDOW_TITLE)
+        self.geometry(WINDOW_SIZE)
+        self.minsize(*WINDOW_MIN_SIZE)
+        
+        # Variables de estado
+        self.escaneando = False
+        self.vulnerabilidades = []
+        self.info_sitio = {}
+        self.informe_completo = ""
+        
+        # Crear menú
+        self.barra_menu = BarraMenu(
+            self,
+            on_exit=self.salir,
+            on_about=self.mostrar_acerca_de
+        )
+        
+        # Crear la interfaz
+        self._crear_interfaz()
+        
+        # Manejar cierre de ventana
+        self.protocol("WM_DELETE_WINDOW", self.salir)
+    
+    def _crear_interfaz(self):
+        """Crea todos los elementos de la interfaz"""
+        
+        # Frame principal con grid
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(2, weight=1)
+        
+        # ═══════════════════════════════════════════════════════════
+        # CABECERA
+        # ═══════════════════════════════════════════════════════════
+        self.frame_cabecera = FrameCabecera(
+            self,
+            titulo=f"🔒 {APP_NAME}",
+            subtitulo="Analiza la seguridad de cualquier sitio WordPress"
+        )
+        self.frame_cabecera.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 10))
+        
+        # ═══════════════════════════════════════════════════════════
+        # PANEL DE ENTRADA
+        # ═══════════════════════════════════════════════════════════
+        self.frame_entrada = FrameEntrada(self, al_analizar=self.iniciar_escaneo)
+        self.frame_entrada.grid(row=1, column=0, sticky="ew", padx=20, pady=10)
+        
+        # ═══════════════════════════════════════════════════════════
+        # ÁREA DE RESULTADOS
+        # ═══════════════════════════════════════════════════════════
+        self.frame_resultados = FrameResultados(self, mensaje_inicial=MESSAGES["welcome"])
+        self.frame_resultados.grid(row=2, column=0, sticky="nsew", padx=20, pady=10)
+        
+        # ═══════════════════════════════════════════════════════════
+        # BARRA DE ESTADO Y ACCIONES
+        # ═══════════════════════════════════════════════════════════
+        self.frame_pie = FramePie(
+            self,
+            al_guardar=self.guardar_informe,
+            al_limpiar=self.limpiar_resultados
+        )
+        self.frame_pie.grid(row=3, column=0, sticky="ew", padx=20, pady=(5, 15))
+    
+    # ═══════════════════════════════════════════════════════════════════
+    # MENÚ
+    # ═══════════════════════════════════════════════════════════════════
+    
+    def salir(self):
+        """Sale de la aplicación"""
+        if self.escaneando:
+            if not messagebox.askyesno(
+                "Confirmar salida",
+                "Hay un análisis en curso. ¿Deseas salir de todos modos?"
+            ):
+                return
+        self.destroy()
+    
+    def mostrar_acerca_de(self):
+        """Muestra el diálogo Acerca de"""
+        DialogoAcerca(self)
+    
+    # ═══════════════════════════════════════════════════════════════════
+    # ESCANEO
+    # ═══════════════════════════════════════════════════════════════════
+    
+    def actualizar_estado(self, mensaje: str):
+        """Actualiza el mensaje de estado"""
+        self.frame_pie.establecer_estado(mensaje)
+        self.update_idletasks()
+    
+    def iniciar_escaneo(self):
+        """Inicia el escaneo en un hilo separado"""
+        dominio = self.frame_entrada.obtener_dominio()
+        
+        if not dominio:
+            messagebox.showwarning("Aviso", MESSAGES["no_domain"])
+            return
+        
+        if self.escaneando:
+            messagebox.showinfo("Info", MESSAGES["scan_in_progress"])
+            return
+        
+        # Limpiar resultados anteriores
+        self.limpiar_resultados(mostrar_mensaje=False)
+        
+        # Deshabilitar botón y mostrar progreso
+        self.escaneando = True
+        self.frame_entrada.establecer_escaneando(True)
+        self.frame_pie.establecer_progreso(0)
+        self.frame_pie.iniciar_progreso()
+        
+        # Ejecutar en hilo separado
+        hilo = threading.Thread(target=self._ejecutar_escaneo, args=(dominio,))
+        hilo.daemon = True
+        hilo.start()
+    
+    def _ejecutar_escaneo(self, dominio: str):
+        """Ejecuta el escaneo de vulnerabilidades"""
+        try:
+            # Crear analizador
+            analizador = AnalizadorWordPress(dominio, callback=self.actualizar_estado)
+            
+            # Ejecutar escaneo
+            self.vulnerabilidades, self.info_sitio = analizador.ejecutar_escaneo_completo()
+            
+            # Verificar si hubo error
+            if 'error' in self.info_sitio:
+                self.after(0, lambda: self._mostrar_error(self.info_sitio['error']))
+                return
+            
+            # Generar informe
+            generador = GeneradorInformes(dominio, self.vulnerabilidades, self.info_sitio)
+            self.informe_completo = generador.generar_informe_completo()
+            
+            # Mostrar resultados en la UI
+            self.after(0, lambda: self._mostrar_resultados(generador))
+            
+        except Exception as e:
+            self.after(0, lambda: self._mostrar_error(f"Error durante el análisis: {str(e)}"))
+        finally:
+            self.after(0, self._finalizar_escaneo)
+    
+    def _mostrar_resultados(self, generador: GeneradorInformes):
+        """Muestra los resultados en la interfaz"""
+        resumen = generador.generar_resumen_ejecutivo()
+        puntuacion = generador.calcular_puntuacion_seguridad()
+        
+        contenido_resumen = f"""
+████████████████████████████████████████████████████████████████████
+█                ANÁLISIS COMPLETADO                                █
+████████████████████████████████████████████████████████████████████
+
+🌐 Sitio analizado: {generador.dominio}
+📅 Fecha: {generador.fecha}
+
+{resumen}
+
+{'─' * 70}
+
+ℹ️  Revisa las otras pestañas para más detalles:
+    • Detalles: Explicación simple de cada problema
+    • Técnico: Información técnica completa  
+    • Plan de Acción: Qué hacer y en qué orden
+"""
+        
+        self.frame_resultados.establecer_contenido(
+            resumen=contenido_resumen,
+            detalles=generador.generar_explicacion_simple(),
+            tecnico=generador.generar_informe_tecnico(),
+            acciones=generador.generar_recomendaciones_prioritarias()
+        )
+        
+        # Habilitar botón de guardar
+        self.frame_pie.habilitar_guardar(True)
+        
+        # Mostrar mensaje de éxito
+        total_vulns = len(self.vulnerabilidades)
+        self.frame_pie.establecer_estado(
+            f"✅ Análisis completado. Se encontraron {total_vulns} vulnerabilidades. Puntuación: {puntuacion}/100"
+        )
+    
+    def _mostrar_error(self, mensaje: str):
+        """Muestra un mensaje de error"""
+        contenido_error = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║                         ⚠️ ERROR                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+{mensaje}
+
+Posibles causas:
+• El dominio no es válido o no existe
+• El sitio no está accesible
+• El sitio no es WordPress
+• Problemas de conexión a internet
+
+Sugerencias:
+• Verifica que el dominio esté escrito correctamente
+• Asegúrate de que el sitio esté funcionando
+• Intenta con o sin 'www.' en el dominio
+• Prueba con 'https://' explícitamente
+"""
+        self.frame_resultados.texto_resumen.delete("1.0", "end")
+        self.frame_resultados.texto_resumen.insert("1.0", contenido_error)
+        self.frame_pie.establecer_estado(f"❌ Error: {mensaje}")
+    
+    def _finalizar_escaneo(self):
+        """Restaura la interfaz después del escaneo"""
+        self.escaneando = False
+        self.frame_entrada.establecer_escaneando(False)
+        self.frame_pie.detener_progreso()
+        self.frame_pie.establecer_progreso(1 if self.vulnerabilidades or 'error' not in self.info_sitio else 0)
+    
+    def limpiar_resultados(self, mostrar_mensaje: bool = True):
+        """Limpia los resultados y restablece la interfaz"""
+        self.vulnerabilidades = []
+        self.info_sitio = {}
+        self.informe_completo = ""
+        
+        if mostrar_mensaje:
+            self.frame_resultados.mostrar_mensaje(f"\n{MESSAGES['cleaned']}")
+            self.frame_pie.establecer_estado(MESSAGES["ready"])
+        else:
+            self.frame_resultados.mostrar_mensaje(f"\n{MESSAGES['analyzing']}")
+        
+        self.frame_pie.habilitar_guardar(False)
+        self.frame_pie.establecer_progreso(0)
+    
+    def guardar_informe(self):
+        """Guarda el informe en un archivo"""
+        if not self.informe_completo:
+            messagebox.showwarning("Aviso", MESSAGES["no_report"])
+            return
+        
+        # Obtener nombre de archivo por defecto
+        dominio = self.frame_entrada.obtener_dominio()
+        dominio_limpio = "".join(c if c.isalnum() else "_" for c in dominio)
+        fecha = datetime.now().strftime("%Y%m%d_%H%M%S")
+        nombre_default = f"informe_fijaten_{dominio_limpio}_{fecha}.txt"
+        
+        # Diálogo para guardar
+        ruta_archivo = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            initialfile=nombre_default,
+            filetypes=[
+                ("Archivo de texto", "*.txt"),
+                ("Todos los archivos", "*.*")
+            ]
+        )
+        
+        if ruta_archivo:
+            try:
+                with open(ruta_archivo, 'w', encoding='utf-8') as f:
+                    f.write(self.informe_completo)
+                messagebox.showinfo("Éxito", f"Informe guardado en:\n{ruta_archivo}")
+                self.frame_pie.establecer_estado(f"✅ Informe guardado: {os.path.basename(ruta_archivo)}")
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo guardar el informe:\n{str(e)}")
