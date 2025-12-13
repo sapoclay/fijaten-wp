@@ -30,7 +30,7 @@ class DialogoHistorial(ctk.CTkToplevel):
         self.geometry("900x600")
         self.minsize(700, 500)
         
-        # Hacer modal
+        # Hacer modal la ventana
         self.transient(parent)
         self.grab_set()
         
@@ -178,6 +178,7 @@ class DialogoHistorial(ctk.CTkToplevel):
         ).pack(side="right", padx=10, pady=10)
     
     def _cargar_historial(self):
+        
         """Carga el historial de escaneos"""
         # Limpiar lista actual
         for widget in self.scroll_lista.winfo_children():
@@ -380,10 +381,15 @@ class DialogoHistorial(ctk.CTkToplevel):
             messagebox.showinfo("Info", "El historial ya está vacío")
             return
         
+
+
+
         confirmacion = messagebox.askyesno(
             "Confirmar limpieza",
             f"¿Eliminar TODOS los {cantidad} escaneos del historial?\n\nEsta acción no se puede deshacer."
         )
+
+
         
         if confirmacion:
             eliminados = self.historial.limpiar_historial()
