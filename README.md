@@ -21,7 +21,10 @@ Fijaten-WP permite analizar las vulnerabilidades más comunes y críticas de cua
 - **Notificaciones de escritorio** - Alertas cuando termine el escaneo
 - **Modo claro/oscuro** - Selector de tema en Preferencias > Apariencia
 - **Menú de opciones** - Configura qué verificaciones ejecutar
-- **Exportación de informes** - Guarda los resultados en archivo de texto
+- **Exportación de informes** - Guarda los resultados en TXT, PDF o HTML
+- **Historial de escaneos** - Guarda y compara escaneos anteriores
+- **Gráficos visuales** - Puntuación circular animada y distribución de severidades
+- **Detección de tecnologías** - Identifica CMS, frameworks y lenguajes si no es WordPress
 - **Enlaces CVE oficiales** - Links a NVD y MITRE para cada vulnerabilidad
 
 ## 🔍 Vulnerabilidades que analiza
@@ -54,6 +57,25 @@ Fijaten-WP permite analizar las vulnerabilidades más comunes y críticas de cua
 | 📋 Listas negras | Verifica si el dominio está en blacklists de spam/malware |
 | 🌐 Análisis DNS/WHOIS | Obtiene información de registros DNS y DNSSEC |
 | 🛡️ Detección WAF | Detecta firewalls de aplicación web (Cloudflare, Sucuri, etc.) |
+
+## 🔍 Detección de Tecnologías
+
+Si el sitio analizado **no es WordPress**, Fijaten-WP detecta automáticamente las tecnologías utilizadas:
+
+### CMS y Plataformas
+- Joomla, Drupal, Magento, PrestaShop
+- Shopify, Wix, Squarespace, Webflow
+- Ghost, TYPO3, Concrete5
+
+### Frameworks
+- **Backend**: Django, Laravel, Ruby on Rails, ASP.NET, Next.js, Nuxt.js
+- **Frontend**: React, Vue.js, Angular, jQuery, Bootstrap, Tailwind CSS
+
+### Lenguajes y Servidores
+- PHP, Python, Ruby, Java, .NET
+- Apache, Nginx, IIS, LiteSpeed
+
+El detector muestra el **nivel de confianza** de cada tecnología identificada.
 
 ## 📦 Instalación
 
@@ -110,7 +132,55 @@ python3 main.py
    - **⚙️ Técnico**: Información técnica detallada
    - **✅ Plan de Acción**: Pasos ordenados por prioridad
 
-5. **Guarda el informe** haciendo clic en "Guardar Informe"
+5. **Guarda el informe** haciendo clic en "Guardar Informe" o exporta a PDF/HTML
+
+## 📤 Exportación de Informes
+
+### Formatos disponibles
+
+| Formato | Descripción | Atajo |
+|---------|-------------|-------|
+| **TXT** | Texto plano, ideal para copiar/pegar | `Ctrl+S` |
+| **PDF** | Documento profesional con gráficos y tablas | `Ctrl+P` |
+| **HTML** | Informe visual interactivo con gráficos Chart.js | `Ctrl+H` |
+
+### Exportar a PDF
+
+Requiere la librería `reportlab`:
+```bash
+pip install reportlab
+```
+
+El PDF incluye:
+- Gráfico de puntuación circular
+- Tabla de resumen por severidad
+- Detalle de cada vulnerabilidad con colores
+- Información del sitio
+
+### Exportar a HTML
+
+No requiere dependencias adicionales. El HTML incluye:
+- Diseño moderno con Tailwind CSS
+- Gráfico de distribución con Chart.js
+- Botón de imprimir integrado
+- Opción de abrir en navegador
+
+## 📚 Historial de Escaneos
+
+Fijaten-WP guarda automáticamente cada escaneo realizado:
+
+- **Ubicación**: `~/.fijaten-wp/historial/`
+- **Filtrar por dominio**: Busca escaneos de un sitio específico
+- **Comparar escaneos**: Selecciona 2 escaneos para ver diferencias
+- **Estadísticas**: Tendencia de seguridad (mejorando/empeorando/estable)
+- **Límite**: Se mantienen los últimos 100 escaneos
+
+### Información de comparación
+
+- ✅ Vulnerabilidades resueltas
+- ⚠️ Nuevas vulnerabilidades
+- ⏳ Vulnerabilidades pendientes
+- 📈 Cambio en puntuación
 
 ## 🗂️ Estructura del proyecto
 
@@ -129,10 +199,16 @@ fijaten-wp/
 │   ├── dialogo_acerca.py       # Diálogo "Acerca de"
 │   ├── dialogo_opciones.py     # Opciones de escaneo
 │   ├── dialogo_escaneo_multiple.py  # Escaneo de múltiples sitios
+│   ├── dialogo_historial.py    # Historial de escaneos
+│   ├── dialogo_atajos.py       # Diálogo de atajos de teclado
 │   ├── gestor_temas.py         # Gestión de tema claro/oscuro
 │   ├── notificaciones.py       # Notificaciones de escritorio
 │   ├── barra_menu.py           # Barra de menú
-│   └── componentes.py          # Componentes reutilizables
+│   ├── componentes.py          # Componentes reutilizables
+│   ├── exportador_pdf.py       # Exportación a PDF
+│   ├── exportador_html.py      # Exportación a HTML
+│   ├── historial_escaneos.py   # Gestión de historial
+│   └── grafico_puntuacion.py   # Widget gráfico circular
 └── scanner/
     ├── __init__.py
     ├── analizador_vulnerabilidades.py  # Motor de análisis
@@ -141,7 +217,8 @@ fijaten-wp/
     ├── verificador_cve.py              # Verificación de CVEs
     ├── verificador_blacklist.py        # Verificación de listas negras
     ├── analizador_dns.py               # Análisis DNS/WHOIS
-    └── detector_waf.py                 # Detección de WAF/CDN
+    ├── detector_waf.py                 # Detección de WAF/CDN
+    └── detector_tecnologias.py         # Detección de tecnologías web
 ```
 
 ## 📊 Niveles de severidad
@@ -158,11 +235,15 @@ fijaten-wp/
 
 | Atajo | Acción |
 |-------|--------|
-| `Ctrl+Q` | Salir de la aplicación |
-| `Ctrl+O` | Abrir opciones de escaneo |
+| `Ctrl+S` | Guardar informe en texto |
+| `Ctrl+P` | Exportar a PDF |
+| `Ctrl+H` | Exportar a HTML |
+| `Ctrl+L` | Abrir historial de escaneos |
 | `Ctrl+M` | Abrir escaneo múltiple |
+| `Ctrl+O` | Abrir opciones de escaneo |
 | `Ctrl+T` | Alternar modo claro/oscuro |
 | `Ctrl+K` | Mostrar atajos de teclado |
+| `Ctrl+Q` | Salir de la aplicación |
 | `F1` | Mostrar "Acerca de" |
 | `Enter` | Iniciar escaneo (en campo de dominio) |
 | `Escape` | Cerrar ventanas flotantes |
