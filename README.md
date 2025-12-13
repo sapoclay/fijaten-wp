@@ -166,7 +166,7 @@ Fijaten-WP guarda automáticamente cada escaneo realizado:
 - ⏳ Vulnerabilidades pendientes
 - 📈 Cambio en puntuación
 
-## 🗂️ Estructura del proyecto
+## Estructura del proyecto
 
 ```
 fijaten-wp/
@@ -205,7 +205,7 @@ fijaten-wp/
     └── detector_tecnologias.py         # Detección de tecnologías web
 ```
 
-## 📊 Niveles de severidad
+## Niveles de severidad
 
 | Icono | Nivel | Descripción |
 |-------|-------|-------------|
@@ -215,7 +215,7 @@ fijaten-wp/
 | 🟢 | BAJA | Mejora opcional |
 | 🔵 | INFO | Información |
 
-## ⌨️ Atajos de teclado
+## Atajos de teclado
 
 | Atajo | Acción |
 |-------|--------|
@@ -234,9 +234,7 @@ fijaten-wp/
 
 > **Nota:** En macOS usa `Cmd` en lugar de `Ctrl`
 
-## 📸 Capturas de pantalla
-
-### Pantalla principal
+## Pantalla principal
 
 ```
 ╔═══════════════════════════════════════════════════════════╗
@@ -250,19 +248,19 @@ fijaten-wp/
 ║                                                           ║
 ║  ┌─────────────────────────────────────────────────────┐  ║
 ║  │                                                     │  ║
-║  │  📊 PUNTUACIÓN DE SEGURIDAD: 75/100                │  ║
-║  │  📈 NIVEL DE RIESGO: 🟢 BUENO                      │  ║
+║  │  📊 PUNTUACIÓN DE SEGURIDAD: 75/100                 │  ║
+║  │  📈 NIVEL DE RIESGO: 🟢 BUENO                       │  ║
 ║  │                                                     │  ║
-║  │  📋 RESUMEN DE HALLAZGOS:                          │  ║
-║  │     🔴 Problemas Críticos: 0                       │  ║
-║  │     🟠 Problemas Altos: 2                          │  ║
-║  │     🟡 Problemas Medios: 3                         │  ║
+║  │  📋 RESUMEN DE HALLAZGOS:                           │  ║
+║  │     🔴 Problemas Críticos: 0                        │  ║
+║  │     🟠 Problemas Altos: 2                           │  ║
+║  │     🟡 Problemas Medios: 3                          │  ║
 ║  │                                                     │  ║
 ║  └─────────────────────────────────────────────────────┘  ║
 ╚═══════════════════════════════════════════════════════════╝
 ```
 
-## ⚠️ Aviso legal
+## ⚠️ Aviso legal ⚠️
 
 Este software está diseñado para:
 - Analizar la seguridad de **tus propios sitios WordPress**
@@ -276,9 +274,7 @@ Este software está diseñado para:
 
 El uso indebido de esta herramienta es responsabilidad exclusiva del usuario.
 
-## 🤝 Contribuciones
-
-Las contribuciones son bienvenidas. Por favor:
+## Contribuciones
 
 1. Haz fork del repositorio
 2. Crea una rama para tu feature (`git checkout -b feature/nueva-caracteristica`)
