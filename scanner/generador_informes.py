@@ -130,10 +130,11 @@ class GeneradorInformes:
 """
         
         for i, vuln in enumerate(self.vulnerabilidades, 1):
+            cwe_info = f"\n  📎 Referencia: {vuln.cwe}" if vuln.cwe else ""
             texto += f"""
 -------------------------------------------------------------------
   {i}. {vuln.nombre}
-  Gravedad: {vuln.severidad.value}
+  Gravedad: {vuln.severidad.value}{cwe_info}
 -------------------------------------------------------------------
 
   🤔 QUE SIGNIFICA ESTO?
@@ -181,12 +182,13 @@ class GeneradorInformes:
         texto += "-------------------------------------------------------------------\n"
         
         for vuln in self.vulnerabilidades:
+            cwe_info = f"\n  CWE: {vuln.cwe}" if vuln.cwe else ""
             texto += f"""
 -------------------------------------------------------------------
   [{vuln.severidad.value}] {vuln.nombre}
 -------------------------------------------------------------------
   Descripcion: {vuln.descripcion}
-  Detalles tecnicos: {vuln.detalles if vuln.detalles else 'N/A'}
+  Detalles tecnicos: {vuln.detalles if vuln.detalles else 'N/A'}{cwe_info}
   Recomendacion: {vuln.recomendacion}
 
 """

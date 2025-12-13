@@ -20,9 +20,11 @@ class VerificadorCVE:
     # URLs oficiales para consultar CVEs
     URL_NVD = "https://nvd.nist.gov/vuln/detail/"
     URL_MITRE = "https://cve.mitre.org/cgi-bin/cvename.cgi?name="
-    URL_NVD_CPE = "https://nvd.nist.gov/products/cpe/search/results?namingFormat=2.3&keyword="
+    URL_NVD_SEARCH = "https://nvd.nist.gov/vuln/search#/nvd/home"
     URL_NVD_API = "https://services.nvd.nist.gov/rest/json/cves/2.0"
-    URL_WPSCAN = "https://wpscan.com/vulnerability/"
+    URL_WPSCAN = "https://wpscan.com/?s="
+    URL_PATCHSTACK = "https://patchstack.com/database/?s="
+    URL_EXPLOIT_DB = "https://www.exploit-db.com/search?q="
     
     # Base de datos local de plugins vulnerables conocidos
     PLUGINS_VULNERABLES = {
@@ -31,6 +33,7 @@ class VerificadorCVE:
             'cve': 'CVE-2020-35489',
             'descripcion': 'Vulnerabilidad de carga de archivos sin restricción',
             'severidad': Severidad.CRITICA,
+            'cvss': 10.0,
             'cpe': 'cpe:2.3:a:rocklobster:contact_form_7:*:*:*:*:*:wordpress:*:*'
         },
         'elementor': {
@@ -38,6 +41,7 @@ class VerificadorCVE:
             'cve': 'CVE-2021-24226',
             'descripcion': 'Vulnerabilidad XSS almacenado',
             'severidad': Severidad.ALTA,
+            'cvss': 6.1,
             'cpe': 'cpe:2.3:a:elementor:elementor:*:*:*:*:*:wordpress:*:*'
         },
         'wpforms-lite': {
@@ -45,6 +49,7 @@ class VerificadorCVE:
             'cve': 'CVE-2021-24145',
             'descripcion': 'Vulnerabilidad CSRF',
             'severidad': Severidad.MEDIA,
+            'cvss': 4.3,
             'cpe': 'cpe:2.3:a:wpforms:wpforms:*:*:*:*:lite:wordpress:*:*'
         },
         'yoast-seo': {
@@ -52,6 +57,7 @@ class VerificadorCVE:
             'cve': 'CVE-2021-25032',
             'descripcion': 'Vulnerabilidad de inyección SQL',
             'severidad': Severidad.CRITICA,
+            'cvss': 9.8,
             'cpe': 'cpe:2.3:a:yoast:yoast_seo:*:*:*:*:*:wordpress:*:*'
         },
         'woocommerce': {
@@ -59,6 +65,7 @@ class VerificadorCVE:
             'cve': 'CVE-2021-32789',
             'descripcion': 'Vulnerabilidad de inyección SQL',
             'severidad': Severidad.CRITICA,
+            'cvss': 7.5,
             'cpe': 'cpe:2.3:a:woocommerce:woocommerce:*:*:*:*:*:wordpress:*:*'
         },
         'wordfence': {
@@ -66,6 +73,7 @@ class VerificadorCVE:
             'cve': 'CVE-2021-24290',
             'descripcion': 'Bypass de autenticación',
             'severidad': Severidad.ALTA,
+            'cvss': 7.5,
             'cpe': 'cpe:2.3:a:wordfence:wordfence:*:*:*:*:*:wordpress:*:*'
         },
         'all-in-one-wp-migration': {
@@ -73,6 +81,7 @@ class VerificadorCVE:
             'cve': 'CVE-2021-24130',
             'descripcion': 'Vulnerabilidad de path traversal',
             'severidad': Severidad.ALTA,
+            'cvss': 6.5,
             'cpe': 'cpe:2.3:a:servmask:all-in-one_wp_migration:*:*:*:*:*:wordpress:*:*'
         },
         'duplicator': {
@@ -80,6 +89,7 @@ class VerificadorCVE:
             'cve': 'CVE-2020-11738',
             'descripcion': 'Lectura arbitraria de archivos',
             'severidad': Severidad.CRITICA,
+            'cvss': 7.5,
             'cpe': 'cpe:2.3:a:snapcreek:duplicator:*:*:*:*:*:wordpress:*:*'
         },
         'updraftplus': {
@@ -87,6 +97,7 @@ class VerificadorCVE:
             'cve': 'CVE-2022-0633',
             'descripcion': 'Descarga de backups sin autenticación',
             'severidad': Severidad.CRITICA,
+            'cvss': 8.5,
             'cpe': 'cpe:2.3:a:updraftplus:updraftplus:*:*:*:*:*:wordpress:*:*'
         },
         'wp-file-manager': {
@@ -94,6 +105,7 @@ class VerificadorCVE:
             'cve': 'CVE-2020-25213',
             'descripcion': 'Ejecución remota de código',
             'severidad': Severidad.CRITICA,
+            'cvss': 10.0,
             'cpe': 'cpe:2.3:a:developer:file_manager:*:*:*:*:*:wordpress:*:*'
         },
         'revslider': {
@@ -101,6 +113,7 @@ class VerificadorCVE:
             'cve': 'CVE-2021-24349',
             'descripcion': 'Inyección SQL sin autenticación',
             'severidad': Severidad.CRITICA,
+            'cvss': 9.8,
             'cpe': 'cpe:2.3:a:themepunch:slider_revolution:*:*:*:*:*:wordpress:*:*'
         },
         'jetpack': {
@@ -108,6 +121,7 @@ class VerificadorCVE:
             'cve': 'CVE-2021-24374',
             'descripcion': 'Vulnerabilidad XSS',
             'severidad': Severidad.MEDIA,
+            'cvss': 5.4,
             'cpe': 'cpe:2.3:a:automattic:jetpack:*:*:*:*:*:wordpress:*:*'
         },
     }
@@ -119,6 +133,7 @@ class VerificadorCVE:
             'cve': 'CVE-2021-24569',
             'descripcion': 'Inyección SQL sin autenticación',
             'severidad': Severidad.CRITICA,
+            'cvss': 9.8,
             'cpe': 'cpe:2.3:a:flavor_theme_project:flavor:*:*:*:*:*:wordpress:*:*'
         },
         'flavor-flavor': {
@@ -126,6 +141,7 @@ class VerificadorCVE:
             'cve': 'CVE-2020-11515',
             'descripcion': 'Redirección abierta',
             'severidad': Severidad.MEDIA,
+            'cvss': 6.1,
             'cpe': None
         },
     }
@@ -143,12 +159,27 @@ class VerificadorCVE:
             'cve_id': cve_id
         }
     
-    def generar_enlace_cpe(self, cpe: str) -> str:
-        """Genera enlace a NVD para buscar un CPE"""
-        if cpe:
-            # Extraer el nombre del producto del CPE para buscar
-            return f"{self.URL_NVD_CPE}{cpe}"
-        return ""
+    def generar_enlace_cpe(self, cpe: Optional[str], nombre_producto: str = "") -> Dict[str, str]:
+        """Genera enlaces útiles para buscar vulnerabilidades de un producto"""
+        enlaces = {}
+        
+        if nombre_producto:
+            # Normalizar nombre del producto para búsqueda
+            nombre_busqueda = nombre_producto.replace('-', '+').replace('_', '+')
+            
+            # Enlace a WPScan (base de datos especializada en WordPress)
+            enlaces['wpscan'] = f"{self.URL_WPSCAN}{nombre_busqueda}"
+            
+            # Enlace a Patchstack (otra base de datos de WordPress)
+            enlaces['patchstack'] = f"{self.URL_PATCHSTACK}{nombre_producto}"
+            
+            # Enlace a búsqueda en NVD por nombre del producto (con comillas para búsqueda exacta)
+            enlaces['nvd_search'] = f"{self.URL_NVD_SEARCH}?keyword=%22{nombre_producto}%22&resultType={nombre_producto}"
+            
+            # Enlace a Exploit-DB
+            enlaces['exploit_db'] = f"{self.URL_EXPLOIT_DB}wordpress+{nombre_busqueda}"
+        
+        return enlaces
     
     def buscar_cpe_wordpress(self, nombre_componente: str, tipo: str = 'plugin') -> Optional[str]:
         """
@@ -264,16 +295,23 @@ class VerificadorCVE:
             enlaces = self.generar_enlace_cve(cve_id)
             cpe = info_vuln.get('cpe')
             
+            # Generar enlaces de búsqueda útiles
+            enlaces_busqueda = self.generar_enlace_cpe(cpe, nombre_plugin)
+            
             resultado_base = {
                 'plugin': nombre_plugin,
                 'cve': cve_id,
                 'descripcion': info_vuln['descripcion'],
                 'severidad': info_vuln['severidad'],
+                'cvss': info_vuln.get('cvss', 0.0),
                 'enlaces': enlaces,
                 'url_nvd': enlaces['nvd'],
                 'url_mitre': enlaces['mitre'],
                 'cpe': cpe,
-                'url_cpe': self.generar_enlace_cpe(cpe) if cpe else None
+                'url_wpscan': enlaces_busqueda.get('wpscan', ''),
+                'url_patchstack': enlaces_busqueda.get('patchstack', ''),
+                'url_nvd_search': enlaces_busqueda.get('nvd_search', ''),
+                'url_exploit_db': enlaces_busqueda.get('exploit_db', '')
             }
             
             # Si no hay versión, asumimos que podría ser vulnerable
@@ -305,16 +343,23 @@ class VerificadorCVE:
             enlaces = self.generar_enlace_cve(cve_id)
             cpe = info_vuln.get('cpe')
             
+            # Generar enlaces de búsqueda útiles
+            enlaces_busqueda = self.generar_enlace_cpe(cpe, nombre_tema)
+            
             resultado_base = {
                 'tema': nombre_tema,
                 'cve': cve_id,
                 'descripcion': info_vuln['descripcion'],
                 'severidad': info_vuln['severidad'],
+                'cvss': info_vuln.get('cvss', 0.0),
                 'enlaces': enlaces,
                 'url_nvd': enlaces['nvd'],
                 'url_mitre': enlaces['mitre'],
                 'cpe': cpe,
-                'url_cpe': self.generar_enlace_cpe(cpe) if cpe else None
+                'url_wpscan': enlaces_busqueda.get('wpscan', ''),
+                'url_patchstack': enlaces_busqueda.get('patchstack', ''),
+                'url_nvd_search': enlaces_busqueda.get('nvd_search', ''),
+                'url_exploit_db': enlaces_busqueda.get('exploit_db', '')
             }
             
             if not version:
@@ -378,23 +423,33 @@ class VerificadorCVE:
             resultado = self.verificar_plugin(nombre, version)
             if resultado:
                 # Construir detalles con enlaces
-                detalles = f"Versión detectada: {resultado['version_detectada']}\n\n"
-                detalles += "📎 ENLACES OFICIALES:\n"
+                cvss_score = resultado.get('cvss', 0.0)
+                cvss_texto = self._formatear_cvss(cvss_score)
+                
+                detalles = f"Versión detectada: {resultado['version_detectada']}\n"
+                detalles += f"\n📊 PUNTUACIÓN CVSS: {cvss_texto}\n\n"
+                detalles += "📎 ENLACES OFICIALES DEL CVE:\n"
                 detalles += f"  • NVD: {resultado.get('url_nvd', 'N/A')}\n"
                 detalles += f"  • MITRE: {resultado.get('url_mitre', 'N/A')}\n"
                 
-                if resultado.get('cpe'):
-                    detalles += f"\n📦 CPE (Common Platform Enumeration):\n"
-                    detalles += f"  • {resultado['cpe']}\n"
-                    detalles += f"  • Buscar en NVD: {resultado.get('url_cpe', 'N/A')}\n"
+                # Añadir enlaces de búsqueda más útiles
+                nombre_plugin = resultado['plugin']
+                detalles += f"\n🔍 BUSCAR MÁS VULNERABILIDADES DE '{nombre_plugin.upper()}':\n"
+                if resultado.get('url_wpscan'):
+                    detalles += f"  • WPScan: {resultado['url_wpscan']}\n"
+                if resultado.get('url_patchstack'):
+                    detalles += f"  • Patchstack: {resultado['url_patchstack']}\n"
+                if resultado.get('url_nvd_search'):
+                    detalles += f"  • NVD Search: {resultado['url_nvd_search']}\n"
                 
                 vulnerabilidades.append(Vulnerabilidad(
                     nombre=f"CVE conocido en plugin: {resultado['plugin']}",
                     severidad=resultado['severidad'],
-                    descripcion=f"{resultado['cve']}: {resultado['descripcion']}",
-                    explicacion_simple=f"El plugin {resultado['plugin']} tiene una vulnerabilidad de seguridad conocida ({resultado['cve']}) que los atacantes podrían explotar. Consulta los enlaces en los detalles para más información.",
+                    descripcion=f"{resultado['cve']} (CVSS: {cvss_score}): {resultado['descripcion']}",
+                    explicacion_simple=f"El plugin {resultado['plugin']} tiene una vulnerabilidad de seguridad conocida ({resultado['cve']}) con puntuación CVSS {cvss_score}/10. Consulta los enlaces en los detalles para más información.",
                     recomendacion=f"Actualizar {resultado['plugin']} a la versión más reciente inmediatamente. Consulta {resultado.get('url_nvd', '')} para información detallada.",
-                    detalles=detalles
+                    detalles=detalles,
+                    cwe=f"{resultado['cve']}"
                 ))
         
         # Verificar tema
@@ -403,23 +458,46 @@ class VerificadorCVE:
             resultado = self.verificar_tema(nombre_tema, version_tema)
             if resultado:
                 # Construir detalles con enlaces
-                detalles = f"Versión detectada: {resultado['version_detectada']}\n\n"
-                detalles += "📎 ENLACES OFICIALES:\n"
+                cvss_score = resultado.get('cvss', 0.0)
+                cvss_texto = self._formatear_cvss(cvss_score)
+                
+                detalles = f"Versión detectada: {resultado['version_detectada']}\n"
+                detalles += f"\n📊 PUNTUACIÓN CVSS: {cvss_texto}\n\n"
+                detalles += "📎 ENLACES OFICIALES DEL CVE:\n"
                 detalles += f"  • NVD: {resultado.get('url_nvd', 'N/A')}\n"
                 detalles += f"  • MITRE: {resultado.get('url_mitre', 'N/A')}\n"
                 
-                if resultado.get('cpe'):
-                    detalles += f"\n📦 CPE (Common Platform Enumeration):\n"
-                    detalles += f"  • {resultado['cpe']}\n"
-                    detalles += f"  • Buscar en NVD: {resultado.get('url_cpe', 'N/A')}\n"
+                # Añadir enlaces de búsqueda más útiles
+                nombre_tema_display = resultado['tema']
+                detalles += f"\n🔍 BUSCAR MÁS VULNERABILIDADES DE '{nombre_tema_display.upper()}':\n"
+                if resultado.get('url_wpscan'):
+                    detalles += f"  • WPScan: {resultado['url_wpscan']}\n"
+                if resultado.get('url_patchstack'):
+                    detalles += f"  • Patchstack: {resultado['url_patchstack']}\n"
+                if resultado.get('url_nvd_search'):
+                    detalles += f"  • NVD Search: {resultado['url_nvd_search']}\n"
                 
                 vulnerabilidades.append(Vulnerabilidad(
                     nombre=f"CVE conocido en tema: {resultado['tema']}",
                     severidad=resultado['severidad'],
-                    descripcion=f"{resultado['cve']}: {resultado['descripcion']}",
-                    explicacion_simple=f"El tema {resultado['tema']} tiene una vulnerabilidad de seguridad conocida ({resultado['cve']}). Consulta los enlaces en los detalles para más información.",
+                    descripcion=f"{resultado['cve']} (CVSS: {cvss_score}): {resultado['descripcion']}",
+                    explicacion_simple=f"El tema {resultado['tema']} tiene una vulnerabilidad de seguridad conocida ({resultado['cve']}) con puntuación CVSS {cvss_score}/10. Consulta los enlaces en los detalles para más información.",
                     recomendacion=f"Actualizar el tema a la versión más reciente o cambiar a otro tema. Consulta {resultado.get('url_nvd', '')} para información detallada.",
-                    detalles=detalles
+                    detalles=detalles,
+                    cwe=f"{resultado['cve']}"
                 ))
         
         return vulnerabilidades
+    
+    def _formatear_cvss(self, cvss: float) -> str:
+        """Formatea la puntuación CVSS con indicador de severidad"""
+        if cvss >= 9.0:
+            return f"{cvss}/10 🔴 (Crítica)"
+        elif cvss >= 7.0:
+            return f"{cvss}/10 🟠 (Alta)"
+        elif cvss >= 4.0:
+            return f"{cvss}/10 🟡 (Media)"
+        elif cvss > 0:
+            return f"{cvss}/10 🟢 (Baja)"
+        else:
+            return "No disponible"

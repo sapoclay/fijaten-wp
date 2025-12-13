@@ -26,6 +26,7 @@ class Vulnerabilidad:
     explicacion_simple: str
     recomendacion: str
     detalles: str = ""
+    cwe: str = ""  # Identificador CWE (Common Weakness Enumeration)
 
 
 @dataclass

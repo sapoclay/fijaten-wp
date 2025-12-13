@@ -199,5 +199,6 @@ class VerificadorBlacklist:
             descripcion=f"El dominio o su IP está listado en {len(listas)} lista(s) negra(s).",
             explicacion_simple="Tu sitio ha sido marcado como sospechoso de spam o malware. Esto puede hacer que emails no lleguen, navegadores bloqueen el sitio, y afecte tu reputación.",
             recomendacion="Investigar la causa (posible hackeo, spam). Limpiar el sitio y solicitar eliminación de las listas negras.",
-            detalles=f"Listas: {', '.join(nombres_listas)}"
+            detalles=f"Listas: {', '.join(nombres_listas)}",
+            cwe="CWE-506: Código malicioso embebido"
         )

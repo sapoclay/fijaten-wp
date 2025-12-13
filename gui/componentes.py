@@ -322,6 +322,9 @@ class FrameResultados(ctk.CTkFrame):
     
     def _abrir_enlace(self, widget, event):
         """Abre el enlace en el navegador por defecto"""
+        import subprocess
+        import os
+        
         # Obtener el índice del clic
         index = widget.index(f"@{event.x},{event.y}")
         
@@ -337,9 +340,20 @@ class FrameResultados(ctk.CTkFrame):
                 # Obtener el texto del enlace
                 url = widget.get(start, end)
                 try:
-                    webbrowser.open(url)
+                    # Abrir sin mostrar mensajes del navegador en la terminal
+                    if os.name == 'nt':  # Windows
+                        os.startfile(url)
+                    elif os.name == 'posix':  # Linux/macOS
+                        # Redirigir stdout/stderr para evitar mensajes del navegador
+                        subprocess.Popen(
+                            ['xdg-open', url],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            start_new_session=True
+                        )
                 except Exception as e:
-                    print(f"Error al abrir enlace: {e}")
+                    # Fallback a webbrowser
+                    webbrowser.open(url)
                 break
     
     def _detectar_y_marcar_enlaces(self, textbox: ctk.CTkTextbox):

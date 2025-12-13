@@ -266,7 +266,8 @@ class AnalizadorDNS:
                 descripcion="Faltan registros DNS importantes para la seguridad del email.",
                 explicacion_simple="Sin SPF y DMARC, los atacantes pueden enviar emails haciéndose pasar por tu dominio (phishing).",
                 recomendacion="Configurar registros SPF, DKIM y DMARC en tu DNS.",
-                detalles="\n".join(analisis['problemas'])
+                detalles="\n".join(analisis['problemas']),
+                cwe="CWE-290: Bypass de autenticación por suplantación"
             ))
         
         return vulnerabilidades

@@ -159,7 +159,8 @@ class AnalizadorWordPress:
                         descripcion="El archivo readme.html está accesible públicamente y revela la versión de WordPress.",
                         explicacion_simple="Es como dejar visible el manual de instrucciones de tu casa, que indica qué cerradura tienes instalada.",
                         recomendacion="Eliminar o restringir el acceso al archivo readme.html",
-                        detalles=f"URL: {self.dominio}/readme.html"
+                        detalles=f"URL: {self.dominio}/readme.html",
+                        cwe="CWE-200: Exposición de información sensible"
                     ))
         
         # Método 3: RSS Feed
@@ -185,7 +186,8 @@ class AnalizadorWordPress:
                         descripcion=f"WordPress versión {version} está desactualizada y puede contener vulnerabilidades conocidas.",
                         explicacion_simple="Es como usar una cerradura antigua que los ladrones ya saben cómo abrir. Las versiones nuevas corrigen fallos de seguridad.",
                         recomendacion="Actualizar WordPress a la última versión estable disponible.",
-                        detalles=f"Versión detectada: {version}"
+                        detalles=f"Versión detectada: {version}",
+                        cwe="CWE-1104: Uso de componentes de terceros sin mantenimiento"
                     ))
             except:
                 pass
@@ -210,7 +212,8 @@ class AnalizadorWordPress:
                         descripcion="El sitio permite acceso por HTTP sin redirigir a HTTPS.",
                         explicacion_simple="Es como enviar una carta sin sobre: cualquiera puede leer lo que escribes, incluyendo contraseñas.",
                         recomendacion="Configurar redirección forzada de HTTP a HTTPS en el servidor.",
-                        detalles="El tráfico HTTP no está cifrado y puede ser interceptado."
+                        detalles="El tráfico HTTP no está cifrado y puede ser interceptado.",
+                        cwe="CWE-319: Transmisión de información sensible en texto claro"
                     ))
         except:
             pass
@@ -233,7 +236,8 @@ class AnalizadorWordPress:
                 descripcion=f"El certificado SSL no es válido: {str(e)}",
                 explicacion_simple="El 'candado' de seguridad de la web está roto. Los visitantes verán advertencias de seguridad.",
                 recomendacion="Renovar o instalar un certificado SSL válido (Let's Encrypt es gratuito).",
-                detalles=str(e)
+                detalles=str(e),
+                cwe="CWE-295: Validación incorrecta de certificado"
             ))
         except Exception as e:
             self.info_sitio['ssl_valido'] = False
@@ -255,7 +259,8 @@ class AnalizadorWordPress:
                 descripcion="El archivo xmlrpc.php está activo y responde a peticiones.",
                 explicacion_simple="Es como tener una puerta trasera en tu casa. Los atacantes pueden usarla para intentar adivinar contraseñas miles de veces por minuto.",
                 recomendacion="Deshabilitar XML-RPC si no se usa, o usar un plugin de seguridad para protegerlo.",
-                detalles=f"Métodos disponibles: {len(metodos)}"
+                detalles=f"Métodos disponibles: {len(metodos)}",
+                cwe="CWE-307: Restricción inadecuada de intentos de autenticación"
             ))
             self.info_sitio['xmlrpc_activo'] = True
         else:
@@ -294,7 +299,8 @@ class AnalizadorWordPress:
                 descripcion="Es posible descubrir nombres de usuario del sitio.",
                 explicacion_simple="Los atacantes pueden ver los nombres de usuario, lo que les facilita intentar adivinar contraseñas.",
                 recomendacion="Deshabilitar la enumeración de usuarios con un plugin de seguridad o reglas en .htaccess",
-                detalles=f"Usuarios encontrados: {', '.join(usuarios_encontrados)}"
+                detalles=f"Usuarios encontrados: {', '.join(usuarios_encontrados)}",
+                cwe="CWE-200: Exposición de información sensible"
             ))
             self.info_sitio['usuarios_expuestos'] = usuarios_encontrados
     
@@ -328,7 +334,8 @@ class AnalizadorWordPress:
                 descripcion="Se encontraron archivos de backup de configuración accesibles públicamente.",
                 explicacion_simple="¡GRAVE! Es como dejar las llaves de tu casa y la combinación de tu caja fuerte en el buzón. Contiene contraseñas de la base de datos.",
                 recomendacion="URGENTE: Eliminar inmediatamente estos archivos del servidor.",
-                detalles=f"Archivos encontrados: {', '.join(archivos_expuestos)}"
+                detalles=f"Archivos encontrados: {', '.join(archivos_expuestos)}",
+                cwe="CWE-530: Exposición de archivo de backup"
             ))
     
     def verificar_debug_mode(self):
@@ -356,7 +363,8 @@ class AnalizadorWordPress:
                         descripcion="Se detectaron mensajes de error que podrían indicar que WP_DEBUG está activo.",
                         explicacion_simple="El sitio está mostrando errores técnicos que pueden revelar información interna a los atacantes.",
                         recomendacion="Desactivar WP_DEBUG en wp-config.php para sitios en producción.",
-                        detalles=f"Indicador encontrado: {indicador}"
+                        detalles=f"Indicador encontrado: {indicador}",
+                        cwe="CWE-209: Generación de mensaje de error con información sensible"
                     ))
                     break
         
@@ -369,7 +377,8 @@ class AnalizadorWordPress:
                 descripcion="El archivo de log de debug es accesible públicamente.",
                 explicacion_simple="Es como dejar un diario con todos los errores del sitio abierto. Puede contener información sensible.",
                 recomendacion="Mover o proteger el archivo debug.log. Añadir regla en .htaccess para bloquearlo.",
-                detalles=f"URL: {self.dominio}/wp-content/debug.log"
+                detalles=f"URL: {self.dominio}/wp-content/debug.log",
+                cwe="CWE-532: Inserción de información sensible en archivo de log"
             ))
     
     def verificar_listado_directorios(self):
@@ -398,7 +407,8 @@ class AnalizadorWordPress:
                 descripcion="Algunos directorios permiten ver su contenido.",
                 explicacion_simple="Es como dejar las puertas de los armarios abiertas: cualquiera puede ver qué hay dentro.",
                 recomendacion="Deshabilitar el listado de directorios en el servidor o añadir 'Options -Indexes' en .htaccess",
-                detalles=f"Directorios listables: {', '.join(directorios_listables)}"
+                detalles=f"Directorios listables: {', '.join(directorios_listables)}",
+                cwe="CWE-548: Exposición de información mediante listado de directorio"
             ))
     
     def verificar_plugins_vulnerables(self):
@@ -451,7 +461,8 @@ class AnalizadorWordPress:
                 descripcion="Los archivos readme.txt de los plugins revelan sus versiones.",
                 explicacion_simple="Los atacantes pueden saber qué versiones de plugins usas y buscar fallos conocidos.",
                 recomendacion="Eliminar o restringir acceso a archivos readme.txt de plugins.",
-                detalles=f"Plugins con versión visible: {', '.join(plugins_con_version)}"
+                detalles=f"Plugins con versión visible: {', '.join(plugins_con_version)}",
+                cwe="CWE-200: Exposición de información sensible"
             ))
     
     def verificar_temas(self):
@@ -503,7 +514,8 @@ class AnalizadorWordPress:
                         descripcion="Los mensajes de error indican si un usuario existe o no.",
                         explicacion_simple="El sitio dice si un nombre de usuario existe, lo que ayuda a los atacantes a saber qué usuarios probar.",
                         recomendacion="Usar mensajes de error genéricos que no revelen si el usuario existe.",
-                        detalles="El formulario de login revela la existencia de usuarios"
+                        detalles="El formulario de login revela la existencia de usuarios",
+                        cwe="CWE-204: Respuesta observable a discrepancia de credenciales"
                     ))
     
     def verificar_wp_cron(self):
@@ -559,7 +571,8 @@ class AnalizadorWordPress:
                 descripcion="El servidor no envía algunas cabeceras de seguridad recomendadas.",
                 explicacion_simple="Es como no tener cerrojos adicionales en la puerta. Estas cabeceras añaden capas extra de protección.",
                 recomendacion="Configurar las cabeceras de seguridad en el servidor web o usando un plugin.",
-                detalles="\n".join(cabeceras_faltantes)
+                detalles="\n".join(cabeceras_faltantes),
+                cwe="CWE-693: Fallo en mecanismo de protección"
             ))
     
     def verificar_archivo_robots(self):
@@ -581,7 +594,8 @@ class AnalizadorWordPress:
                     descripcion="El archivo robots.txt menciona rutas de administración.",
                     explicacion_simple="Aunque robots.txt es para buscadores, los atacantes también lo leen para encontrar páginas interesantes.",
                     recomendacion="Considerar no listar rutas sensibles en robots.txt",
-                    detalles=f"URL: {self.dominio}/robots.txt"
+                    detalles=f"URL: {self.dominio}/robots.txt",
+                    cwe="CWE-200: Exposición de información sensible"
                 ))
     
     def verificar_malware_conocido(self):
@@ -643,7 +657,8 @@ class AnalizadorWordPress:
                 descripcion="Se encontraron indicadores de código malicioso en el sitio.",
                 explicacion_simple="¡ALERTA! Tu sitio podría estar infectado con malware. Es como encontrar un ladrón escondido en tu casa. Esto puede robar datos de tus visitantes.",
                 recomendacion="URGENTE: Realizar una limpieza completa del sitio. Restaurar desde backup limpio o contratar un servicio de limpieza de malware.",
-                detalles="\n".join(indicadores_encontrados[:10])  # Limitar a 10
+                detalles="\n".join(indicadores_encontrados[:10]),
+                cwe="CWE-506: Código malicioso embebido"
             ))
             self.info_sitio['malware_detectado'] = True
         else:
@@ -690,7 +705,8 @@ class AnalizadorWordPress:
                 descripcion="Archivos sensibles del sistema están accesibles desde internet.",
                 explicacion_simple="Es como dejar documentos importantes en la calle. Cualquiera puede ver información privada como contraseñas de base de datos.",
                 recomendacion="Bloquear el acceso a estos archivos mediante .htaccess o configuración del servidor. Mover archivos sensibles fuera del directorio público.",
-                detalles="\n".join(archivos_expuestos)
+                detalles="\n".join(archivos_expuestos),
+                cwe="CWE-552: Archivos accesibles externamente"
             ))
             self.info_sitio['archivos_expuestos'] = archivos_expuestos
     
@@ -777,7 +793,8 @@ class AnalizadorWordPress:
                 descripcion="El sitio no implementa una política robusta de contraseñas.",
                 explicacion_simple="Es como dejar que la gente use '123456' como contraseña. Los atacantes pueden adivinar contraseñas fácilmente.",
                 recomendacion="Instalar un plugin de seguridad que fuerce contraseñas fuertes. Añadir CAPTCHA al registro. Usar mensajes genéricos en recuperación de contraseña.",
-                detalles="\n".join(problemas_encontrados)
+                detalles="\n".join(problemas_encontrados),
+                cwe="CWE-521: Requisitos de contraseña débiles"
             ))
     
     def verificar_hotlinking(self):
@@ -833,7 +850,8 @@ class AnalizadorWordPress:
                             descripcion="Las imágenes del sitio pueden ser enlazadas desde otros sitios web.",
                             explicacion_simple="Otros sitios pueden usar tus imágenes directamente, consumiendo tu ancho de banda y recursos del servidor sin tu permiso.",
                             recomendacion="Configurar reglas anti-hotlinking en .htaccess o usar un CDN con protección de hotlink.",
-                            detalles=f"Imagen probada: {imagen_test}"
+                            detalles=f"Imagen probada: {imagen_test}",
+                            cwe="CWE-346: Error de validación de origen"
                         ))
                         self.info_sitio['hotlinking_protegido'] = False
                     else:
@@ -929,7 +947,8 @@ class AnalizadorWordPress:
                 descripcion=f"Se encontraron {len(formularios_sin_csrf)} formularios POST sin tokens de protección CSRF visibles.",
                 explicacion_simple="Sin protección CSRF, un atacante puede engañar a tus usuarios para que envíen formularios sin su conocimiento, como cambiar su email o hacer compras.",
                 recomendacion="Implementar tokens CSRF (nonce en WordPress) en todos los formularios. Usar plugins de seguridad que añadan esta protección automáticamente.",
-                detalles="\n".join(formularios_sin_csrf[:5])  # Limitar a 5
+                detalles="\n".join(formularios_sin_csrf[:5]),
+                cwe="CWE-352: Falsificación de petición en sitio cruzado (CSRF)"
             ))
             self.info_sitio['formularios_sin_csrf'] = len(formularios_sin_csrf)
         
@@ -961,7 +980,8 @@ class AnalizadorWordPress:
                         descripcion=f"El tema {tema} tiene vulnerabilidades conocidas.",
                         explicacion_simple="El tema que usas tiene fallos de seguridad conocidos que los atacantes podrían explotar.",
                         recomendacion="Actualizar el tema a la última versión o buscar una alternativa más segura.",
-                        detalles=str(resultado_tema.get('detalles', ''))
+                        detalles=str(resultado_tema.get('detalles', '')),
+                        cwe="CWE-1104: Uso de componentes de terceros sin mantenimiento"
                     ))
                 self.info_sitio['cve_tema_analizado'] = tema
         except Exception as e:

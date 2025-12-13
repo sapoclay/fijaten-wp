@@ -281,7 +281,8 @@ class DetectorWAF:
             descripcion="No se detectó ningún firewall de aplicación web protegiendo el sitio.",
             explicacion_simple="Tu sitio no tiene un 'guardia de seguridad' que bloquee ataques automáticos como inyecciones SQL o XSS. Esto te hace más vulnerable.",
             recomendacion="Instalar un WAF como Wordfence, Sucuri, o usar un CDN con WAF integrado como Cloudflare.",
-            detalles="Un WAF puede bloquear el 90% de los ataques automatizados comunes."
+            detalles="Un WAF puede bloquear el 90% de los ataques automatizados comunes.",
+            cwe="CWE-693: Fallo en mecanismo de protección"
         )
     
     def generar_info_waf_detectado(self, resultado: Dict) -> Dict:
