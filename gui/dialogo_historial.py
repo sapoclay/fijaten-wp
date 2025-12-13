@@ -334,6 +334,10 @@ class DialogoHistorial(ctk.CTkToplevel):
         escaneo1 = self.historial.obtener_escaneo(id1)
         escaneo2 = self.historial.obtener_escaneo(id2)
         
+        if not escaneo1 or not escaneo2:
+            messagebox.showerror("Error", "No se pudieron cargar los escaneos seleccionados")
+            return
+        
         if escaneo1["fecha"] > escaneo2["fecha"]:
             id1, id2 = id2, id1
         
