@@ -40,7 +40,7 @@ class GraficoPuntuacion(ctk.CTkCanvas):
         self._dibujar(0)
         
         # Vincular cambio de tema
-        self.bind("<Configure>", lambda e: self._dibujar(self.puntuacion))
+        self.bind("<Configure>", lambda e: self._dibujar(int(self.puntuacion)))
     
     def _actualizar_colores(self):
         """Actualiza los colores según el tema actual"""
@@ -208,7 +208,7 @@ class GraficoPuntuacion(ctk.CTkCanvas):
         
         if abs(diferencia) < 1:
             self.puntuacion = self.puntuacion_objetivo
-            self._dibujar(self.puntuacion)
+            self._dibujar(int(self.puntuacion))
             self.animando = False
             return
         
@@ -220,7 +220,7 @@ class GraficoPuntuacion(ctk.CTkCanvas):
         else:
             self.puntuacion -= velocidad
         
-        self._dibujar(self.puntuacion)
+        self._dibujar(int(self.puntuacion))
         
         # Continuar animación
         self.after(20, self._animar)
