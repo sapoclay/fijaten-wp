@@ -100,28 +100,32 @@ class FrameResultados(ctk.CTkFrame):
             pestana.grid_columnconfigure(0, weight=1)
             pestana.grid_rowconfigure(0, weight=1)
         
-        # Crear textboxes para cada tab
+        # Crear textboxes para cada tab (solo lectura)
         self.texto_resumen = ctk.CTkTextbox(
             self.pestana_resumen, 
-            font=ctk.CTkFont(family="Consolas", size=13)
+            font=ctk.CTkFont(family="Consolas", size=13),
+            state="disabled"  # Solo lectura
         )
         self.texto_resumen.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
         self.texto_detalles = ctk.CTkTextbox(
             self.pestana_detalles, 
-            font=ctk.CTkFont(family="Consolas", size=13)
+            font=ctk.CTkFont(family="Consolas", size=13),
+            state="disabled"  # Solo lectura
         )
         self.texto_detalles.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
         self.texto_tecnico = ctk.CTkTextbox(
             self.pestana_tecnico, 
-            font=ctk.CTkFont(family="Consolas", size=13)
+            font=ctk.CTkFont(family="Consolas", size=13),
+            state="disabled"  # Solo lectura
         )
         self.texto_tecnico.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
         self.texto_acciones = ctk.CTkTextbox(
             self.pestana_acciones, 
-            font=ctk.CTkFont(family="Consolas", size=13)
+            font=ctk.CTkFont(family="Consolas", size=13),
+            state="disabled"  # Solo lectura
         )
         self.texto_acciones.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
@@ -132,24 +136,31 @@ class FrameResultados(ctk.CTkFrame):
         """Retorna todas las cajas de texto"""
         return [self.texto_resumen, self.texto_detalles, self.texto_tecnico, self.texto_acciones]
     
+    def _escribir_en_textbox(self, textbox: ctk.CTkTextbox, contenido: str):
+        """Escribe contenido en un textbox de solo lectura"""
+        textbox.configure(state="normal")  # Habilitar temporalmente
+        textbox.delete("1.0", "end")
+        textbox.insert("1.0", contenido)
+        textbox.configure(state="disabled")  # Volver a solo lectura
+    
     def mostrar_mensaje(self, mensaje: str):
         """Muestra un mensaje en todas las pestañas"""
         for caja_texto in self.obtener_cajas_texto():
-            caja_texto.delete("1.0", "end")
-            caja_texto.insert("1.0", mensaje)
+            self._escribir_en_textbox(caja_texto, mensaje)
     
     def limpiar_todo(self):
         """Limpia todas las pestañas"""
         for caja_texto in self.obtener_cajas_texto():
+            caja_texto.configure(state="normal")
             caja_texto.delete("1.0", "end")
+            caja_texto.configure(state="disabled")
     
     def establecer_contenido(self, resumen: str, detalles: str, tecnico: str, acciones: str):
         """Establece el contenido de cada pestaña"""
-        self.limpiar_todo()
-        self.texto_resumen.insert("1.0", resumen)
-        self.texto_detalles.insert("1.0", detalles)
-        self.texto_tecnico.insert("1.0", tecnico)
-        self.texto_acciones.insert("1.0", acciones)
+        self._escribir_en_textbox(self.texto_resumen, resumen)
+        self._escribir_en_textbox(self.texto_detalles, detalles)
+        self._escribir_en_textbox(self.texto_tecnico, tecnico)
+        self._escribir_en_textbox(self.texto_acciones, acciones)
 
 
 class FramePie(ctk.CTkFrame):

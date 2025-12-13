@@ -167,10 +167,11 @@ class DialogoEscaneoMultiple(ctk.CTkToplevel):
         
         self.texto_resultados = ctk.CTkTextbox(
             frame_resultados,
-            font=ctk.CTkFont(family="Consolas", size=12)
+            font=ctk.CTkFont(family="Consolas", size=12),
+            state="disabled"  # Solo lectura
         )
         self.texto_resultados.grid(row=1, column=0, sticky="nsew", padx=15, pady=(5, 15))
-        self.texto_resultados.insert("1.0", "Los resultados del escaneo aparecerán aquí...")
+        self._escribir_resultados("Los resultados del escaneo aparecerán aquí...")
         
         # ════════════════════════════════════════════════════════════
         # BARRA DE PROGRESO Y ESTADO
@@ -342,8 +343,16 @@ class DialogoEscaneoMultiple(ctk.CTkToplevel):
             self.dominios = []
             self.resultados = {}
             self._actualizar_lista_visual()
+            self._escribir_resultados("Los resultados del escaneo aparecerán aquí...")
+    
+    def _escribir_resultados(self, texto: str, limpiar: bool = True):
+        """Escribe texto en el área de resultados (solo lectura)"""
+        self.texto_resultados.configure(state="normal")
+        if limpiar:
             self.texto_resultados.delete("1.0", "end")
-            self.texto_resultados.insert("1.0", "Los resultados del escaneo aparecerán aquí...")
+        self.texto_resultados.insert("end" if not limpiar else "1.0", texto)
+        self.texto_resultados.see("end")
+        self.texto_resultados.configure(state="disabled")
     
     def _iniciar_escaneo(self):
         """Inicia el escaneo de todos los dominios"""
@@ -366,8 +375,7 @@ class DialogoEscaneoMultiple(ctk.CTkToplevel):
         self.boton_cargar.configure(state="disabled")
         self.boton_limpiar.configure(state="disabled")
         
-        self.texto_resultados.delete("1.0", "end")
-        self.texto_resultados.insert("1.0", "🔄 Iniciando escaneo múltiple...\n\n")
+        self._escribir_resultados("🔄 Iniciando escaneo múltiple...\n\n")
         
         # Iniciar hilo de escaneo
         self.hilo_actual = threading.Thread(target=self._ejecutar_escaneo_multiple)
@@ -450,8 +458,7 @@ class DialogoEscaneoMultiple(ctk.CTkToplevel):
     
     def _agregar_resultado(self, texto: str):
         """Agrega texto al área de resultados"""
-        self.texto_resultados.insert("end", texto)
-        self.texto_resultados.see("end")
+        self._escribir_resultados(texto, limpiar=False)
     
     def _cancelar_escaneo(self):
         """Cancela el escaneo en curso"""

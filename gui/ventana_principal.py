@@ -282,8 +282,8 @@ Sugerencias:
 • Intenta con o sin 'www.' en el dominio
 • Prueba con 'https://' explícitamente
 """
-        self.frame_resultados.texto_resumen.delete("1.0", "end")
-        self.frame_resultados.texto_resumen.insert("1.0", contenido_error)
+        # Usar el método de FrameResultados que maneja solo lectura
+        self.frame_resultados.mostrar_mensaje(contenido_error)
         self.frame_pie.establecer_estado(f"❌ Error: {mensaje}")
     
     def _finalizar_escaneo(self):
