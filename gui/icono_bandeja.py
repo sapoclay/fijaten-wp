@@ -3,20 +3,28 @@ Fijaten-WP - Icono de Bandeja del Sistema
 Gestiona el icono en la bandeja del sistema (system tray)
 """
 
+from __future__ import annotations
 import threading
 from pathlib import Path
 from PIL import Image
 import sys
+from typing import TYPE_CHECKING, Any, Optional
 
 # Añadir directorio padre al path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Importar pystray de forma segura
+pystray: Any = None
+item: Any = None
+PYSTRAY_DISPONIBLE = False
+
 try:
-    import pystray
-    from pystray import MenuItem as item
+    import pystray as _pystray
+    from pystray import MenuItem as _item
+    pystray = _pystray
+    item = _item
     PYSTRAY_DISPONIBLE = True
 except ImportError:
-    PYSTRAY_DISPONIBLE = False
     print("⚠️ pystray no está instalado. El icono de bandeja no estará disponible.")
 
 from configuracion import APP_NAME, LOGO_PATH
@@ -33,8 +41,8 @@ class IconoBandeja:
             ventana_principal: Referencia a la ventana principal de la aplicación
         """
         self.ventana = ventana_principal
-        self.icono = None
-        self.icono_thread = None
+        self.icono: Any = None
+        self.icono_thread: Optional[threading.Thread] = None
         self._activo = False
         
         if not PYSTRAY_DISPONIBLE:
@@ -95,7 +103,8 @@ class IconoBandeja:
     def _ejecutar_icono(self):
         """Ejecuta el bucle del icono (en hilo separado)"""
         try:
-            self.icono.run()
+            if self.icono is not None:
+                self.icono.run()
         except Exception as e:
             print(f"⚠️ Error en icono de bandeja: {e}")
     
