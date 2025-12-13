@@ -72,7 +72,7 @@ class HistorialEscaneos:
             info_sitio: Información del sitio
             puntuacion: Puntuación de seguridad
             
-        Returns:
+        DEvuelve:
             ID del escaneo guardado
         """
         fecha = datetime.now()
@@ -163,7 +163,7 @@ class HistorialEscaneos:
         Args:
             dominio: Dominio a buscar
             
-        Returns:
+        Devuelve:
             Lista de escaneos del dominio (ordenados por fecha, más reciente primero)
         """
         dominio_normalizado = self._normalizar_dominio(dominio)
@@ -176,7 +176,7 @@ class HistorialEscaneos:
         """
         Obtiene todos los escaneos del historial
         
-        Returns:
+        Devuelve:
             Lista de todos los escaneos (ordenados por fecha)
         """
         return self.indice["escaneos"]
@@ -188,7 +188,7 @@ class HistorialEscaneos:
         Args:
             id_escaneo: ID del escaneo
             
-        Returns:
+        Devuelve:
             Diccionario con los datos del escaneo o None si no existe
         """
         archivo_escaneo = self.directorio / f"{id_escaneo}.json"
@@ -208,7 +208,7 @@ class HistorialEscaneos:
             id_escaneo1: ID del primer escaneo (más antiguo)
             id_escaneo2: ID del segundo escaneo (más reciente)
             
-        Returns:
+        Devuelve:
             Diccionario con la comparación
         """
         escaneo1 = self.obtener_escaneo(id_escaneo1)
@@ -310,7 +310,7 @@ class HistorialEscaneos:
         Args:
             id_escaneo: ID del escaneo a eliminar
             
-        Returns:
+        Devuelve:
             True si se eliminó correctamente
         """
         # Eliminar archivo
@@ -330,7 +330,7 @@ class HistorialEscaneos:
         """
         Elimina todo el historial
         
-        Returns:
+        Devuelve:
             Número de escaneos eliminados
         """
         cantidad = len(self.indice["escaneos"])
@@ -353,7 +353,7 @@ class HistorialEscaneos:
         Args:
             dominio: Dominio a analizar
             
-        Returns:
+        Devuelve:
             Estadísticas del dominio
         """
         historial = self.obtener_historial_dominio(dominio)
@@ -398,7 +398,7 @@ class HistorialEscaneos:
             return "➡️ Estable"
 
 
-# Singleton
+# Module-level instance cache
 _historial = None
 
 def obtener_historial() -> HistorialEscaneos:

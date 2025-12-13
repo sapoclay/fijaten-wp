@@ -39,6 +39,7 @@ gestor_temas = obtener_gestor_temas()
 
 
 class VentanaPrincipal(ctk.CTk):
+    
     """Ventana principal de Fijaten-WP"""
     
     def __init__(self):
@@ -92,9 +93,12 @@ class VentanaPrincipal(ctk.CTk):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
         
+
         # ═══════════════════════════════════════════════════════════
         # CABECERA
         # ═══════════════════════════════════════════════════════════
+        
+        
         self.frame_cabecera = FrameCabecera(
             self,
             titulo=f"🔒 {APP_NAME}",
@@ -133,7 +137,7 @@ class VentanaPrincipal(ctk.CTk):
         if self.escaneando:
             if not messagebox.askyesno(
                 "Confirmar salida",
-                "Hay un análisis en curso. ¿Deseas salir de todos modos?"
+                "Hay un análisis en curso. ¿Quieres salir de todos modos?"
             ):
                 return
         # Detener icono de bandeja
@@ -267,7 +271,7 @@ class VentanaPrincipal(ctk.CTk):
         
         contenido_resumen = f"""
 ████████████████████████████████████████████████████████████████████
-█                ANÁLISIS COMPLETADO                                █
+█                ANÁLISIS COMPLETADO                               █
 ████████████████████████████████████████████████████████████████████
 
 🌐 Sitio analizado: {generador.dominio}
@@ -303,7 +307,7 @@ class VentanaPrincipal(ctk.CTk):
         """Muestra un mensaje de error"""
         contenido_error = f"""
 ╔══════════════════════════════════════════════════════════════════╗
-║                         ⚠️ ERROR                                  ║
+║                         ⚠️ ERROR                                 ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 {mensaje}
@@ -335,7 +339,7 @@ Sugerencias:
         
         contenido = f"""
 ╔══════════════════════════════════════════════════════════════════╗
-║              🔍 ANÁLISIS DE TECNOLOGÍAS WEB                       ║
+║              🔍 ANÁLISIS DE TECNOLOGÍAS WEB                      ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 ⚠️  Este sitio NO utiliza WordPress, pero hemos detectado las

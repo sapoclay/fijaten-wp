@@ -31,6 +31,7 @@ from configuracion import APP_NAME, LOGO_PATH
 
 
 class IconoBandeja:
+    
     """Gestiona el icono en la bandeja del sistema"""
     
     def __init__(self, ventana_principal):

@@ -146,7 +146,7 @@ class GraficoPuntuacion(ctk.CTkCanvas):
                       r_ext: float, r_int: float,
                       angulo_inicio: float, angulo_fin: float,
                       color: str):
-        """Dibuja un arco grueso (anillo)"""
+        """Dibuja un arco gordo"""
         # Número de segmentos para suavizar el arco
         segmentos = max(36, int(abs(angulo_inicio - angulo_fin) / 2))
         
@@ -244,7 +244,7 @@ class FrameGraficoPuntuacion(ctk.CTkFrame):
         # Título
         self.label_titulo = ctk.CTkLabel(
             self,
-            text="📊 Puntuación de Seguridad",
+            text="📊 Puntuación de seguridad",
             font=("", 14, "bold")
         )
         self.label_titulo.grid(row=0, column=0, pady=(10, 5))
@@ -277,7 +277,7 @@ class FrameGraficoPuntuacion(ctk.CTkFrame):
         if vulnerabilidades > 0:
             self.label_info.configure(text=f"🔍 {vulnerabilidades} vulnerabilidades encontradas")
         else:
-            self.label_info.configure(text="✅ Sin vulnerabilidades detectadas")
+            self.label_info.configure(text="✅ Sin vulnerabilidades conocidas detectadas")
     
     def reiniciar(self):
         """Reinicia el gráfico"""

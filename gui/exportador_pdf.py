@@ -78,6 +78,7 @@ except ImportError:
 
 
 class ExportadorPDF:
+    
     """Clase para exportar informes a PDF"""
     
     def __init__(self):
@@ -88,7 +89,7 @@ class ExportadorPDF:
         return self.disponible
     
     def obtener_mensaje_instalacion(self) -> str:
-        """Retorna mensaje para instalar dependencias"""
+        """DEvuelve mensaje para instalar dependencias"""
         return "Para exportar a PDF, instala: pip install reportlab"
     
     def exportar(self, ruta_archivo: str, dominio: str, 
@@ -105,7 +106,7 @@ class ExportadorPDF:
             puntuacion: Puntuación de seguridad (0-100)
             conteo_severidad: Diccionario con conteo por severidad
             
-        Returns:
+        Devuelve:
             True si se exportó correctamente
         """
         if not self.disponible:
@@ -214,7 +215,7 @@ class ExportadorPDF:
             elementos.append(Spacer(1, 20))
             
             # Resumen de vulnerabilidades
-            elementos.append(Paragraph("Resumen de Hallazgos", estilo_subtitulo))
+            elementos.append(Paragraph("Resumen de hallazgos", estilo_subtitulo))
             elementos.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#2563eb')))
             elementos.append(Spacer(1, 10))
             
@@ -244,7 +245,7 @@ class ExportadorPDF:
             # Detalle de vulnerabilidades
             if vulnerabilidades:
                 elementos.append(PageBreak())
-                elementos.append(Paragraph("Detalle de Vulnerabilidades", estilo_subtitulo))
+                elementos.append(Paragraph("Detalle de vulnerabilidades", estilo_subtitulo))
                 elementos.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#2563eb')))
                 elementos.append(Spacer(1, 10))
                 
@@ -409,7 +410,7 @@ class ExportadorPDF:
         return drawing
 
 
-# Singleton
+# Module-level instance cache
 _exportador_pdf = None
 
 def obtener_exportador_pdf() -> ExportadorPDF:

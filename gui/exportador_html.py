@@ -11,6 +11,7 @@ import html
 
 
 class ExportadorHTML:
+    
     """Clase para exportar informes a HTML"""
     
     def __init__(self):
@@ -30,12 +31,13 @@ class ExportadorHTML:
             puntuacion: Puntuación de seguridad (0-100)
             conteo_severidad: Diccionario con conteo por severidad
             
-        Returns:
+        Devuelve:
             True si se exportó correctamente
         """
         try:
             fecha = datetime.now().strftime("%d/%m/%Y %H:%M")
             
+
             # Determinar color y estado según puntuación
             if puntuacion >= 80:
                 color_puntuacion = "#16a34a"
@@ -53,6 +55,7 @@ class ExportadorHTML:
                 color_puntuacion = "#dc2626"
                 estado = "CRÍTICO"
                 gradiente = "from-red-500 to-red-600"
+                
             
             # Generar HTML de vulnerabilidades
             html_vulnerabilidades = self._generar_html_vulnerabilidades(vulnerabilidades)
@@ -226,6 +229,7 @@ class ExportadorHTML:
             raise Exception(f"Error al generar HTML: {str(e)}")
     
     def _generar_html_vulnerabilidades(self, vulnerabilidades: List) -> str:
+        
         """Genera el HTML para la sección de vulnerabilidades"""
         if not vulnerabilidades:
             return '''
@@ -341,7 +345,7 @@ class ExportadorHTML:
         return html_content
 
 
-# Singleton
+# Module-level instance cache
 _exportador_html = None
 
 def obtener_exportador_html() -> ExportadorHTML:

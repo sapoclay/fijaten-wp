@@ -83,7 +83,7 @@ class NotificadorEscritorio:
             mensaje: Mensaje de la notificación
             tipo: Tipo de notificación (info, warning, error, success)
         
-        Returns:
+        Devuelve:
             True si la notificación se envió correctamente
         """
         if not self.habilitadas:
@@ -253,7 +253,7 @@ def notificar_escaneo_completado(dominio: str, vulnerabilidades: int, puntuacion
     tipo = "success" if puntuacion >= 70 else "warning" if puntuacion >= 40 else "error"
     
     notificador.notificar(
-        titulo="🔒 Escaneo Completado - Fijaten-WP",
+        titulo="🔒 Escaneo completado - Fijaten-WP",
         mensaje=f"Sitio: {dominio}\nVulnerabilidades: {vulnerabilidades}\nPuntuación: {puntuacion}/100",
         tipo=tipo
     )
