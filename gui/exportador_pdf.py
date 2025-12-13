@@ -5,26 +5,76 @@ Genera informes en formato PDF profesional
 
 import os
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, TYPE_CHECKING, Any
 from pathlib import Path
 
+# Variables para almacenar los módulos de reportlab
+colors: Any = None
+A4: Any = None
+cm: Any = None
+mm: Any = None
+getSampleStyleSheet: Any = None
+ParagraphStyle: Any = None
+SimpleDocTemplate: Any = None
+Paragraph: Any = None
+Spacer: Any = None
+Table: Any = None
+TableStyle: Any = None
+Image: Any = None
+PageBreak: Any = None
+HRFlowable: Any = None
+TA_CENTER: Any = None
+TA_LEFT: Any = None
+TA_JUSTIFY: Any = None
+Drawing: Any = None
+Circle: Any = None
+Wedge: Any = None
+
 # Intentar importar reportlab para PDF
+REPORTLAB_DISPONIBLE = False
 try:
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4, letter
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import cm, mm
+    from reportlab.lib import colors as _colors
+    from reportlab.lib.pagesizes import A4 as _A4, letter as _letter
+    from reportlab.lib.styles import getSampleStyleSheet as _getSampleStyleSheet, ParagraphStyle as _ParagraphStyle
+    from reportlab.lib.units import cm as _cm, mm as _mm
     from reportlab.platypus import (
-        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, 
-        Image, PageBreak, HRFlowable
+        SimpleDocTemplate as _SimpleDocTemplate, 
+        Paragraph as _Paragraph, 
+        Spacer as _Spacer, 
+        Table as _Table, 
+        TableStyle as _TableStyle, 
+        Image as _Image, 
+        PageBreak as _PageBreak, 
+        HRFlowable as _HRFlowable
     )
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
-    from reportlab.graphics.shapes import Drawing, Circle, Wedge
-    from reportlab.graphics.charts.piecharts import Pie
-    from reportlab.graphics import renderPDF
+    from reportlab.lib.enums import TA_CENTER as _TA_CENTER, TA_LEFT as _TA_LEFT, TA_JUSTIFY as _TA_JUSTIFY
+    from reportlab.graphics.shapes import Drawing as _Drawing, Circle as _Circle, Wedge as _Wedge
+    
+    # Asignar a las variables del módulo
+    colors = _colors
+    A4 = _A4
+    cm = _cm
+    mm = _mm
+    getSampleStyleSheet = _getSampleStyleSheet
+    ParagraphStyle = _ParagraphStyle
+    SimpleDocTemplate = _SimpleDocTemplate
+    Paragraph = _Paragraph
+    Spacer = _Spacer
+    Table = _Table
+    TableStyle = _TableStyle
+    Image = _Image
+    PageBreak = _PageBreak
+    HRFlowable = _HRFlowable
+    TA_CENTER = _TA_CENTER
+    TA_LEFT = _TA_LEFT
+    TA_JUSTIFY = _TA_JUSTIFY
+    Drawing = _Drawing
+    Circle = _Circle
+    Wedge = _Wedge
+    
     REPORTLAB_DISPONIBLE = True
 except ImportError:
-    REPORTLAB_DISPONIBLE = False
+    pass
 
 
 class ExportadorPDF:
