@@ -1,33 +1,30 @@
-# 🔒 Fijaten-WP
+# Fijaten-WP
 
-Analizador de vulnerabilidades de WordPress con interfaz gráfica moderna.
+Este es un pequeño programa para analizar las vulnerabilidades de WordPress más conocidas y posiblemente más básicas.
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)
 
-## 📋 Descripción
+Fijaten-WP permite analizar las vulnerabilidades más comunes y críticas de cualquier sitio WordPress. Genera informes claros y comprensibles tanto para usuarios técnicos como no técnicos y así poder buscar una solución.
 
-Fijaten-WP permite analizar las vulnerabilidades más comunes y críticas de cualquier sitio WordPress. Genera informes claros y comprensibles tanto para usuarios técnicos como no técnicos.
+## Características
 
-## 🚀 Características
-
-- **Interfaz gráfica moderna** con tema oscuro/claro y fácil de usar
-- **Análisis no intrusivo** - Solo analiza información pública
-- **Informes para todos** - Explicaciones simples y técnicas
-- **Plan de acción prioritizado** - Sabe qué arreglar primero
-- **Escaneo múltiple** - Analiza varios sitios WordPress a la vez
-- **Barra de progreso detallada** - Muestra qué verificación se está ejecutando
+- **Interfaz gráfica** con tema oscuro/claro y fácil de usar. Los temas se encuentan en Preferencias > Apariencia
+- **Análisis no intrusivo** - Solo analiza información pública. De lo que se trata es de impedir que otros se aprovechen
+- **Informes para todos** - Explicaciones simples y técnicas (para toda la familia)
+- **Plan de acción prioritizado** - Te da una pequeña indicación sobre qué arreglar primero
+- **Escaneo múltiple** - Analiza varios sitios WordPress a la vez (para comparar)
+- **Barra de progreso detallada** - PAra que todo esté claro en todo momento, muestra qué verificación se está ejecutando
 - **Notificaciones de escritorio** - Alertas cuando termine el escaneo
-- **Modo claro/oscuro** - Selector de tema en Preferencias > Apariencia
-- **Menú de opciones** - Configura qué verificaciones ejecutar
+- **Menú de opciones** - Configura qué verificaciones ejecutar en cada momento
 - **Exportación de informes** - Guarda los resultados en TXT, PDF o HTML
-- **Historial de escaneos** - Guarda y compara escaneos anteriores
-- **Gráficos visuales** - Puntuación circular animada y distribución de severidades
+- **Historial de escaneos** - Guarda y compara con los escaneos anteriores
+- **Gráficos visuales** - Puntuación y distribución de severidades
 - **Detección de tecnologías** - Identifica CMS, frameworks y lenguajes si no es WordPress
 - **Enlaces CVE oficiales** - Links a NVD y MITRE para cada vulnerabilidad
 
-## 🔍 Vulnerabilidades que analiza
+## 🔍 Vulnerabilidades que analiza 🔍
 
 ### Análisis básicos
 | Vulnerabilidad | Descripción |
@@ -58,9 +55,9 @@ Fijaten-WP permite analizar las vulnerabilidades más comunes y críticas de cua
 | 🌐 Análisis DNS/WHOIS | Obtiene información de registros DNS y DNSSEC |
 | 🛡️ Detección WAF | Detecta firewalls de aplicación web (Cloudflare, Sucuri, etc.) |
 
-## 🔍 Detección de Tecnologías
+## 🔍 Detección de tecnologías
 
-Si el sitio analizado **no es WordPress**, Fijaten-WP detecta automáticamente las tecnologías utilizadas:
+Si el sitio analizado **no es WordPress**, Fijaten-WP intenta detectar automáticamente las tecnologías utilizadas:
 
 ### CMS y Plataformas
 - Joomla, Drupal, Magento, PrestaShop
@@ -77,29 +74,16 @@ Si el sitio analizado **no es WordPress**, Fijaten-WP detecta automáticamente l
 
 El detector muestra el **nivel de confianza** de cada tecnología identificada.
 
-## 📦 Instalación
+## Instalación
 
 ### Requisitos previos
 
 - Python 3.8 o superior
 - pip (gestor de paquetes de Python)
 
-### Instalación de dependencias
-
-```bash
-# Crear entorno virtual (recomendado)
-python -m venv venv
-source venv/bin/activate  # En Linux/Mac
-# o
-venv\Scripts\activate  # En Windows
-
-# Instalar dependencias
-pip install -r requirements.txt
-```
-
 ## ▶️ Uso
 
-### Ejecutar la aplicación (recomendado)
+### Ejecutar la aplicación 
 
 ```bash
 python3 iniciar.py
@@ -122,7 +106,7 @@ python3 main.py
 1. **Introduce el dominio** en la barra superior
    - Ejemplo: `misitioweb.com` o `https://misitioweb.com`
 
-2. **Haz clic en "Analizar"** o presiona Enter
+2. **Haz clic en "Analizar"** o presiona Intro
 
 3. **Espera** mientras se realiza el análisis (10-30 segundos)
 
@@ -134,7 +118,7 @@ python3 main.py
 
 5. **Guarda el informe** haciendo clic en "Guardar Informe" o exporta a PDF/HTML
 
-## 📤 Exportación de Informes
+## Exportar informes
 
 ### Formatos disponibles
 
@@ -160,12 +144,12 @@ El PDF incluye:
 ### Exportar a HTML
 
 No requiere dependencias adicionales. El HTML incluye:
-- Diseño moderno con Tailwind CSS
+- Diseño con Tailwind CSS
 - Gráfico de distribución con Chart.js
 - Botón de imprimir integrado
 - Opción de abrir en navegador
 
-## 📚 Historial de Escaneos
+## Historial de escaneos
 
 Fijaten-WP guarda automáticamente cada escaneo realizado:
 
@@ -282,7 +266,7 @@ fijaten-wp/
 
 Este software está diseñado para:
 - Analizar la seguridad de **tus propios sitios WordPress**
-- Ayudar a administradores web a mejorar la seguridad
+- Ayudar a mejorar la seguridad de forma rápida
 - Realizar análisis **no intrusivos** basados en información pública
 
 **NO** utilices esta herramienta para:
@@ -302,22 +286,18 @@ Las contribuciones son bienvenidas. Por favor:
 4. Push a la rama (`git push origin feature/nueva-caracteristica`)
 5. Crea un Pull Request
 
-## 📄 Licencia
+## Licencia
 
 Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
 
-## 📞 Soporte
+## Soporte
 
 Si encuentras algún problema o tienes sugerencias:
 - Abre un issue en el [repositorio de GitHub](https://github.com/sapoclay/fijaten-wp)
 - Describe el problema detalladamente
 - Incluye la versión de Python que usas
 
-## 🔗 Enlaces
-
 - **GitHub**: https://github.com/sapoclay/fijaten-wp
-- **Autor**: Entreunosyceros
+- **Autor**: entreunosyceros
 
 ---
-
-*Desarrollado con ❤️ para la comunidad WordPress*
