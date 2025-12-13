@@ -153,16 +153,39 @@ class FrameResultados(ctk.CTkFrame):
 
 
 class FramePie(ctk.CTkFrame):
-    """Frame de pie con barra de progreso y botones"""
+    """Frame de pie con barra de progreso detallada y botones"""
     
     def __init__(self, parent, al_guardar: Callable, al_limpiar: Callable):
         super().__init__(parent, corner_radius=0, fg_color="transparent")
         self.grid_columnconfigure(0, weight=1)
         
+        # Frame para la barra de progreso y etiqueta de verificación
+        self.frame_progreso = ctk.CTkFrame(self, fg_color="transparent")
+        self.frame_progreso.grid(row=0, column=0, sticky="ew", padx=(0, 10), pady=5)
+        self.frame_progreso.grid_columnconfigure(0, weight=1)
+        
+        # Etiqueta de verificación actual (encima de la barra)
+        self.etiqueta_verificacion = ctk.CTkLabel(
+            self.frame_progreso,
+            text="",
+            font=ctk.CTkFont(size=11),
+            text_color="gray"
+        )
+        self.etiqueta_verificacion.grid(row=0, column=0, sticky="w", pady=(0, 2))
+        
         # Barra de progreso
-        self.barra_progreso = ctk.CTkProgressBar(self)
-        self.barra_progreso.grid(row=0, column=0, sticky="ew", padx=(0, 10), pady=5)
+        self.barra_progreso = ctk.CTkProgressBar(self.frame_progreso)
+        self.barra_progreso.grid(row=1, column=0, sticky="ew", pady=0)
         self.barra_progreso.set(0)
+        
+        # Etiqueta de porcentaje
+        self.etiqueta_porcentaje = ctk.CTkLabel(
+            self.frame_progreso,
+            text="",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            width=50
+        )
+        self.etiqueta_porcentaje.grid(row=1, column=1, padx=(10, 0))
         
         # Label de estado
         self.etiqueta_estado = ctk.CTkLabel(
@@ -196,14 +219,59 @@ class FramePie(ctk.CTkFrame):
             command=al_limpiar
         )
         self.boton_limpiar.pack(side="left", padx=5)
+        
+        # Variables para tracking de progreso
+        self._progreso_actual = 0
+        self._total_verificaciones = 0
+        self._verificacion_actual = ""
     
     def establecer_estado(self, mensaje: str):
         """Actualiza el mensaje de estado"""
         self.etiqueta_estado.configure(text=mensaje)
     
+    def establecer_verificacion_actual(self, verificacion: str, actual: int = 0, total: int = 0):
+        """
+        Muestra qué verificación se está ejecutando actualmente
+        
+        Args:
+            verificacion: Nombre de la verificación en curso
+            actual: Número de verificación actual (1-based)
+            total: Total de verificaciones a realizar
+        """
+        self._verificacion_actual = verificacion
+        self._progreso_actual = actual
+        self._total_verificaciones = total
+        
+        if total > 0:
+            texto = f"🔍 [{actual}/{total}] {verificacion}"
+            porcentaje = int((actual / total) * 100)
+            self.etiqueta_porcentaje.configure(text=f"{porcentaje}%")
+            # Actualizar barra de progreso si no está en modo indeterminado
+            try:
+                self.barra_progreso.set(actual / total)
+            except Exception:
+                pass
+        else:
+            texto = f"🔍 {verificacion}"
+            self.etiqueta_porcentaje.configure(text="")
+        
+        self.etiqueta_verificacion.configure(text=texto)
+    
+    def limpiar_verificacion(self):
+        """Limpia la etiqueta de verificación"""
+        self.etiqueta_verificacion.configure(text="")
+        self.etiqueta_porcentaje.configure(text="")
+        self._verificacion_actual = ""
+        self._progreso_actual = 0
+        self._total_verificaciones = 0
+    
     def establecer_progreso(self, valor: float):
         """Establece el valor del progreso (0-1)"""
         self.barra_progreso.set(valor)
+        if valor > 0:
+            self.etiqueta_porcentaje.configure(text=f"{int(valor * 100)}%")
+        else:
+            self.etiqueta_porcentaje.configure(text="")
     
     def iniciar_progreso(self):
         """Inicia la animación de progreso indeterminado"""
@@ -214,6 +282,7 @@ class FramePie(ctk.CTkFrame):
         """Detiene la animación de progreso"""
         self.barra_progreso.stop()
         self.barra_progreso.configure(mode="determinate")
+        self.limpiar_verificacion()
     
     def habilitar_guardar(self, habilitado: bool = True):
         """Habilita o deshabilita el botón de guardar"""

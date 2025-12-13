@@ -2,20 +2,31 @@
 
 Analizador de vulnerabilidades de WordPress con interfaz gráfica moderna.
 
+![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
+![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)
+
 ## 📋 Descripción
 
 Fijaten-WP permite analizar las vulnerabilidades más comunes y críticas de cualquier sitio WordPress. Genera informes claros y comprensibles tanto para usuarios técnicos como no técnicos.
 
 ## 🚀 Características
 
-- **Interfaz gráfica moderna** y fácil de usar
+- **Interfaz gráfica moderna** con tema oscuro/claro y fácil de usar
 - **Análisis no intrusivo** - Solo analiza información pública
 - **Informes para todos** - Explicaciones simples y técnicas
 - **Plan de acción prioritizado** - Sabe qué arreglar primero
-- **Menú con opciones** - Archivo > Salir y About
+- **Escaneo múltiple** - Analiza varios sitios WordPress a la vez
+- **Barra de progreso detallada** - Muestra qué verificación se está ejecutando
+- **Notificaciones de escritorio** - Alertas cuando termine el escaneo
+- **Modo claro/oscuro** - Selector de tema en Preferencias > Apariencia
+- **Menú de opciones** - Configura qué verificaciones ejecutar
+- **Exportación de informes** - Guarda los resultados en archivo de texto
+- **Enlaces CVE oficiales** - Links a NVD y MITRE para cada vulnerabilidad
 
 ## 🔍 Vulnerabilidades que analiza
 
+### Análisis básicos
 | Vulnerabilidad | Descripción |
 |---------------|-------------|
 | Versión de WordPress | Detecta si está expuesta o desactualizada |
@@ -26,8 +37,23 @@ Fijaten-WP permite analizar las vulnerabilidades más comunes y críticas de cua
 | Modo Debug | Detecta si WP_DEBUG está activo |
 | Listado de directorios | Verifica si los directorios son listables |
 | Plugins | Detecta plugins y versiones expuestas |
+| Temas | Analiza el tema activo y su versión |
+| REST API | Verifica exposición de la API |
 | Cabeceras HTTP | Verifica cabeceras de seguridad |
-| Y más... | Múltiples verificaciones adicionales |
+| Robots.txt | Detecta rutas sensibles expuestas |
+
+### Análisis avanzados
+| Vulnerabilidad | Descripción |
+|---------------|-------------|
+| 🦠 Detección de malware | Busca patrones de código malicioso conocido |
+| 📁 Permisos de archivos | Verifica exposición de archivos críticos |
+| 🔑 Política de contraseñas | Analiza fortaleza requerida y CAPTCHA |
+| 🖼️ Protección hotlinking | Comprueba protección de imágenes |
+| 🛡️ Protección CSRF | Detecta formularios sin tokens de seguridad |
+| 🔐 Base de datos CVE | Consulta vulnerabilidades conocidas en plugins/temas |
+| 📋 Listas negras | Verifica si el dominio está en blacklists de spam/malware |
+| 🌐 Análisis DNS/WHOIS | Obtiene información de registros DNS y DNSSEC |
+| 🛡️ Detección WAF | Detecta firewalls de aplicación web (Cloudflare, Sucuri, etc.) |
 
 ## 📦 Instalación
 
@@ -54,18 +80,19 @@ pip install -r requirements.txt
 ### Ejecutar la aplicación (recomendado)
 
 ```bash
-python run_app.py
+python3 iniciar.py
 ```
 
 Este script automáticamente:
 - Crea el entorno virtual si no existe
 - Instala las dependencias necesarias
+- Verifica la versión de Python
 - Ejecuta la aplicación
 
 ### Ejecutar directamente (si ya tienes las dependencias)
 
 ```bash
-python main.py
+python3 main.py
 ```
 
 ### Instrucciones
@@ -85,6 +112,38 @@ python main.py
 
 5. **Guarda el informe** haciendo clic en "Guardar Informe"
 
+## 🗂️ Estructura del proyecto
+
+```
+fijaten-wp/
+├── iniciar.py                  # Script de inicio con verificaciones
+├── main.py                     # Punto de entrada principal
+├── configuracion.py            # Configuración centralizada
+├── requirements.txt            # Dependencias
+├── README.md
+├── img/
+│   └── logo.png                # Logo de la aplicación
+├── gui/
+│   ├── __init__.py
+│   ├── ventana_principal.py    # Ventana principal
+│   ├── dialogo_acerca.py       # Diálogo "Acerca de"
+│   ├── dialogo_opciones.py     # Opciones de escaneo
+│   ├── dialogo_escaneo_multiple.py  # Escaneo de múltiples sitios
+│   ├── gestor_temas.py         # Gestión de tema claro/oscuro
+│   ├── notificaciones.py       # Notificaciones de escritorio
+│   ├── barra_menu.py           # Barra de menú
+│   └── componentes.py          # Componentes reutilizables
+└── scanner/
+    ├── __init__.py
+    ├── analizador_vulnerabilidades.py  # Motor de análisis
+    ├── generador_informes.py           # Generación de informes
+    ├── modelos.py                      # Modelos de datos
+    ├── verificador_cve.py              # Verificación de CVEs
+    ├── verificador_blacklist.py        # Verificación de listas negras
+    ├── analizador_dns.py               # Análisis DNS/WHOIS
+    └── detector_waf.py                 # Detección de WAF/CDN
+```
+
 ## 📊 Niveles de severidad
 
 | Icono | Nivel | Descripción |
@@ -95,14 +154,26 @@ python main.py
 | 🟢 | BAJA | Mejora opcional |
 | 🔵 | INFO | Información |
 
+## ⌨️ Atajos de teclado
+
+| Atajo | Acción |
+|-------|--------|
+| `Ctrl+Q` | Salir de la aplicación |
+| `Ctrl+O` | Abrir opciones de escaneo |
+| `Ctrl+M` | Abrir escaneo múltiple |
+| `Ctrl+T` | Alternar modo claro/oscuro |
+| `F1` | Mostrar "Acerca de" |
+| `Enter` | Iniciar escaneo (en campo de dominio) |
+
 ## 📸 Capturas de pantalla
 
 ### Pantalla principal
+
 ```
 ╔═══════════════════════════════════════════════════════════╗
 ║  🔒 Fijaten-WP                                            ║
 ╠═══════════════════════════════════════════════════════════╣
-║  Archivo | Ayuda                                          ║
+║  Archivo | Herramientas | Preferencias | Ayuda            ║
 ╠═══════════════════════════════════════════════════════════╣
 ║  🌐 Dominio: [ejemplo.com_________________] [🔍 Analizar] ║
 ╠═══════════════════════════════════════════════════════════╣
@@ -160,6 +231,8 @@ Si encuentras algún problema o tienes sugerencias:
 ## 🔗 Enlaces
 
 - **GitHub**: https://github.com/sapoclay/fijaten-wp
+- **Autor**: Entreunosyceros
 
 ---
 
+*Desarrollado con ❤️ para la comunidad WordPress*

@@ -9,36 +9,29 @@ import ssl
 import socket
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
-from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple
-from enum import Enum
 import concurrent.futures
 
-class Severidad(Enum):
-    """Niveles de severidad de vulnerabilidades"""
-    CRITICA = "🔴 CRÍTICA"
-    ALTA = "🟠 ALTA"
-    MEDIA = "🟡 MEDIA"
-    BAJA = "🟢 BAJA"
-    INFO = "🔵 INFO"
+# Importar clases desde modelos
+from .modelos import Severidad, Vulnerabilidad
 
-@dataclass
-class Vulnerabilidad:
-    """Representa una vulnerabilidad detectada"""
-    nombre: str
-    severidad: Severidad
-    descripcion: str
-    explicacion_simple: str
-    recomendacion: str
-    detalles: str = ""
+# Alias de tipo para verificaciones
+VerificacionesActivas = Optional[List[str]]
+
+# Importar módulos de análisis especializados
+from .verificador_cve import VerificadorCVE
+from .verificador_blacklist import VerificadorBlacklist
+from .analizador_dns import AnalizadorDNS
+from .detector_waf import DetectorWAF
 
 class AnalizadorWordPress:
     """Analizador de vulnerabilidades para sitios WordPress"""
     
-    def __init__(self, dominio: str, callback=None):
+    def __init__(self, dominio: str, callback=None, verificaciones_activas: VerificacionesActivas = None):
         self.dominio_original = dominio
         self.dominio = self._normalizar_dominio(dominio)
         self.callback = callback
+        self.verificaciones_activas = verificaciones_activas  # Lista de verificaciones a ejecutar
         self.vulnerabilidades: List[Vulnerabilidad] = []
         self.info_sitio: Dict = {}
         self.session = requests.Session()
@@ -46,6 +39,12 @@ class AnalizadorWordPress:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         self.timeout = 10
+        
+        # Inicializar módulos de análisis especializados
+        self.verificador_cve = VerificadorCVE(self.session, self.timeout)
+        self.verificador_blacklist = VerificadorBlacklist(self.session, self.timeout)
+        self.analizador_dns = AnalizadorDNS(self.session, self.timeout)
+        self.detector_waf = DetectorWAF(self.session, self.timeout)
         
     def _normalizar_dominio(self, dominio: str) -> str:
         """Normaliza el dominio añadiendo protocolo si es necesario"""
@@ -928,6 +927,99 @@ class AnalizadorWordPress:
         
         self.info_sitio['formularios_analizados'] = formularios_analizados
     
+    def verificar_cve_plugins_temas(self):
+        """Verifica vulnerabilidades CVE conocidas en plugins y temas"""
+        self._registrar_mensaje("🔐 Consultando base de datos CVE para plugins y temas...")
+        
+        plugins = self.info_sitio.get('plugins_detectados', [])
+        tema = self.info_sitio.get('tema_activo', None)
+        
+        try:
+            # Verificar plugins (convertir a lista de tuplas con versión None)
+            if plugins:
+                plugins_con_version: List[Tuple[str, Optional[str]]] = [(str(p), None) for p in plugins]
+                vulns_plugins = self.verificador_cve.generar_vulnerabilidades(plugins_con_version)
+                for vuln in vulns_plugins:
+                    self.vulnerabilidades.append(vuln)
+                self.info_sitio['cve_plugins_analizados'] = len(plugins)
+            
+            # Verificar tema
+            if tema:
+                resultado_tema = self.verificador_cve.verificar_tema(tema, self.info_sitio.get('tema_version'))
+                if resultado_tema and resultado_tema.get('tiene_vulnerabilidades'):
+                    self.vulnerabilidades.append(Vulnerabilidad(
+                        nombre=f"Vulnerabilidades conocidas en tema '{tema}'",
+                        severidad=Severidad.ALTA,
+                        descripcion=f"El tema {tema} tiene vulnerabilidades conocidas.",
+                        explicacion_simple="El tema que usas tiene fallos de seguridad conocidos que los atacantes podrían explotar.",
+                        recomendacion="Actualizar el tema a la última versión o buscar una alternativa más segura.",
+                        detalles=str(resultado_tema.get('detalles', ''))
+                    ))
+                self.info_sitio['cve_tema_analizado'] = tema
+        except Exception as e:
+            self._registrar_mensaje(f"⚠️ Error consultando CVE: {str(e)}")
+    
+    def verificar_listas_negras(self):
+        """Verifica si el dominio está en listas negras de spam/malware"""
+        self._registrar_mensaje("📋 Verificando listas negras de spam y malware...")
+        
+        try:
+            parsed = urlparse(self.dominio)
+            hostname = parsed.netloc or parsed.path
+            
+            resultado = self.verificador_blacklist.ejecutar_verificacion_completa(hostname)
+            
+            if resultado.get('en_lista_negra'):
+                vuln = self.verificador_blacklist.generar_vulnerabilidad(resultado)
+                if vuln:
+                    self.vulnerabilidades.append(vuln)
+            
+            self.info_sitio['blacklist_verificadas'] = resultado.get('total_listas', 0)
+            self.info_sitio['blacklist_positivas'] = resultado.get('listas_positivas', [])
+        except Exception as e:
+            self._registrar_mensaje(f"⚠️ Error verificando listas negras: {str(e)}")
+    
+    def analizar_informacion_dns(self):
+        """Analiza información DNS y WHOIS del dominio"""
+        self._registrar_mensaje("🌐 Analizando información DNS y WHOIS...")
+        
+        try:
+            parsed = urlparse(self.dominio)
+            hostname = parsed.netloc or parsed.path
+            
+            # Obtener resumen DNS
+            resultado = self.analizador_dns.obtener_resumen(hostname)
+            
+            # Añadir información al informe
+            self.info_sitio['dns_info'] = resultado
+            
+            # Añadir vulnerabilidades detectadas
+            vulns_dns = self.analizador_dns.generar_vulnerabilidades(hostname)
+            for vuln in vulns_dns:
+                self.vulnerabilidades.append(vuln)
+        except Exception as e:
+            self._registrar_mensaje(f"⚠️ Error analizando DNS: {str(e)}")
+    
+    def detectar_waf(self):
+        """Detecta la presencia de WAF (Web Application Firewall)"""
+        self._registrar_mensaje("🛡️ Detectando Web Application Firewall...")
+        
+        try:
+            resultado = self.detector_waf.ejecutar_deteccion_completa(self.dominio)
+            
+            if resultado['waf_detectado']:
+                self.info_sitio['waf_detectado'] = True
+                self.info_sitio['waf_info'] = self.detector_waf.generar_info_waf_detectado(resultado)
+                self._registrar_mensaje(f"✅ WAF detectado: {', '.join(resultado['wafs'])}")
+            else:
+                self.info_sitio['waf_detectado'] = False
+                # Añadir como vulnerabilidad potencial
+                self.vulnerabilidades.append(
+                    self.detector_waf.generar_vulnerabilidad_sin_waf()
+                )
+        except Exception as e:
+            self._registrar_mensaje(f"⚠️ Error detectando WAF: {str(e)}")
+    
     def _verificar_sitio_existe(self) -> Tuple[bool, str]:
         """Verifica si el sitio web existe y es accesible"""
         try:
@@ -973,34 +1065,54 @@ class AnalizadorWordPress:
         
         self._registrar_mensaje("✅ Sitio WordPress detectado")
         
-        # Ejecutar todas las verificaciones
-        verificaciones = [
-            self.detectar_version_wordpress,
-            self.verificar_ssl,
-            self.verificar_xmlrpc,
-            self.verificar_enumeracion_usuarios,
-            self.verificar_wp_config_backup,
-            self.verificar_debug_mode,
-            self.verificar_listado_directorios,
-            self.verificar_plugins_vulnerables,
-            self.verificar_temas,
-            self.verificar_login_seguridad,
-            self.verificar_rest_api,
-            self.verificar_cabeceras_seguridad,
-            self.verificar_archivo_robots,
-            # Nuevas verificaciones de seguridad
-            self.verificar_malware_conocido,
-            self.verificar_permisos_archivos,
-            self.verificar_politica_contrasenas,
-            self.verificar_hotlinking,
-            self.verificar_proteccion_csrf,
-        ]
+        # Ejecutar todas las verificaciones (mapeo nombre -> (función, descripción))
+        todas_verificaciones = {
+            'detectar_version_wordpress': (self.detectar_version_wordpress, "Detectando versión WordPress"),
+            'verificar_ssl': (self.verificar_ssl, "Verificando certificado SSL"),
+            'verificar_xmlrpc': (self.verificar_xmlrpc, "Analizando XML-RPC"),
+            'verificar_enumeracion_usuarios': (self.verificar_enumeracion_usuarios, "Comprobando enumeración de usuarios"),
+            'verificar_wp_config_backup': (self.verificar_wp_config_backup, "Buscando archivos de configuración"),
+            'verificar_debug_mode': (self.verificar_debug_mode, "Verificando modo debug"),
+            'verificar_listado_directorios': (self.verificar_listado_directorios, "Analizando listado de directorios"),
+            'verificar_plugins_vulnerables': (self.verificar_plugins_vulnerables, "Detectando plugins"),
+            'verificar_temas': (self.verificar_temas, "Analizando temas"),
+            'verificar_login_seguridad': (self.verificar_login_seguridad, "Verificando seguridad del login"),
+            'verificar_rest_api': (self.verificar_rest_api, "Analizando REST API"),
+            'verificar_cabeceras_seguridad': (self.verificar_cabeceras_seguridad, "Verificando cabeceras HTTP"),
+            'verificar_archivo_robots': (self.verificar_archivo_robots, "Analizando robots.txt"),
+            'verificar_malware_conocido': (self.verificar_malware_conocido, "Buscando malware conocido"),
+            'verificar_permisos_archivos': (self.verificar_permisos_archivos, "Verificando permisos de archivos"),
+            'verificar_politica_contrasenas': (self.verificar_politica_contrasenas, "Analizando política de contraseñas"),
+            'verificar_hotlinking': (self.verificar_hotlinking, "Verificando protección hotlinking"),
+            'verificar_proteccion_csrf': (self.verificar_proteccion_csrf, "Verificando protección CSRF"),
+            'verificar_cve_plugins_temas': (self.verificar_cve_plugins_temas, "Consultando base de datos CVE"),
+            'verificar_listas_negras': (self.verificar_listas_negras, "Verificando listas negras"),
+            'analizar_informacion_dns': (self.analizar_informacion_dns, "Analizando información DNS/WHOIS"),
+            'detectar_waf': (self.detectar_waf, "Detectando WAF/CDN"),
+        }
         
-        for verificacion in verificaciones:
+        # Filtrar verificaciones según opciones del usuario
+        if self.verificaciones_activas is not None:
+            verificaciones_a_ejecutar = [
+                (nombre, func, desc) for nombre, (func, desc) in todas_verificaciones.items()
+                if nombre in self.verificaciones_activas
+            ]
+            self._registrar_mensaje(f"📋 Ejecutando {len(verificaciones_a_ejecutar)} de {len(todas_verificaciones)} verificaciones")
+        else:
+            # Si no se especificaron, ejecutar todas
+            verificaciones_a_ejecutar = [
+                (nombre, func, desc) for nombre, (func, desc) in todas_verificaciones.items()
+            ]
+        
+        total = len(verificaciones_a_ejecutar)
+        
+        for i, (nombre, verificacion, descripcion) in enumerate(verificaciones_a_ejecutar, 1):
             try:
+                # Enviar mensaje con número de verificación y descripción
+                self._registrar_mensaje(f"[{i}/{total}] {descripcion}...")
                 verificacion()
             except Exception as e:
-                self._registrar_mensaje(f"⚠️ Error en {verificacion.__name__}: {str(e)}")
+                self._registrar_mensaje(f"⚠️ Error en {nombre}: {str(e)}")
         
         # Ordenar vulnerabilidades por severidad
         orden_severidad = {

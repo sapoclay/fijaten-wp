@@ -1,0 +1,134 @@
+{
+  "detectar_version_wordpress": {
+    "nombre": "Detectar versión de WordPress",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Detecta si la versión de WordPress está expuesta",
+    "activo": true
+  },
+  "verificar_ssl": {
+    "nombre": "Verificar SSL/HTTPS",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Comprueba el certificado SSL y redirección HTTPS",
+    "activo": true
+  },
+  "verificar_xmlrpc": {
+    "nombre": "Verificar XML-RPC",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Detecta si XML-RPC está habilitado (riesgo de ataques)",
+    "activo": true
+  },
+  "verificar_enumeracion_usuarios": {
+    "nombre": "Enumeración de usuarios",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Verifica si se pueden descubrir nombres de usuario",
+    "activo": true
+  },
+  "verificar_wp_config_backup": {
+    "nombre": "Backups de configuración",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Busca archivos wp-config.php.bak expuestos",
+    "activo": true
+  },
+  "verificar_debug_mode": {
+    "nombre": "Modo Debug",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Detecta si WP_DEBUG está activo",
+    "activo": true
+  },
+  "verificar_listado_directorios": {
+    "nombre": "Listado de directorios",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Verifica si los directorios son listables",
+    "activo": true
+  },
+  "verificar_plugins_vulnerables": {
+    "nombre": "Analizar plugins",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Detecta plugins instalados y versiones expuestas",
+    "activo": true
+  },
+  "verificar_temas": {
+    "nombre": "Analizar temas",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Analiza el tema activo y su versión",
+    "activo": true
+  },
+  "verificar_login_seguridad": {
+    "nombre": "Seguridad del login",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Verifica protecciones en la página de login",
+    "activo": true
+  },
+  "verificar_rest_api": {
+    "nombre": "REST API",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Verifica exposición de la API REST",
+    "activo": true
+  },
+  "verificar_cabeceras_seguridad": {
+    "nombre": "Cabeceras HTTP",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Verifica cabeceras de seguridad HTTP",
+    "activo": true
+  },
+  "verificar_archivo_robots": {
+    "nombre": "Archivo robots.txt",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Detecta rutas sensibles expuestas en robots.txt",
+    "activo": true
+  },
+  "verificar_malware_conocido": {
+    "nombre": "Detección de malware",
+    "categoria": "Análisis Avanzados",
+    "descripcion": "Busca patrones de código malicioso conocido",
+    "activo": true
+  },
+  "verificar_permisos_archivos": {
+    "nombre": "Permisos de archivos",
+    "categoria": "Análisis Avanzados",
+    "descripcion": "Verifica exposición de archivos críticos",
+    "activo": true
+  },
+  "verificar_politica_contrasenas": {
+    "nombre": "Política de contraseñas",
+    "categoria": "Análisis Avanzados",
+    "descripcion": "Analiza fortaleza requerida y CAPTCHA",
+    "activo": true
+  },
+  "verificar_hotlinking": {
+    "nombre": "Protección hotlinking",
+    "categoria": "Análisis Avanzados",
+    "descripcion": "Comprueba protección contra hotlinking de imágenes",
+    "activo": true
+  },
+  "verificar_proteccion_csrf": {
+    "nombre": "Protección CSRF",
+    "categoria": "Análisis Avanzados",
+    "descripcion": "Detecta formularios sin tokens de seguridad",
+    "activo": true
+  },
+  "verificar_cve_plugins_temas": {
+    "nombre": "Base de datos CVE",
+    "categoria": "Análisis Externos",
+    "descripcion": "Consulta vulnerabilidades conocidas en plugins/temas",
+    "activo": true
+  },
+  "verificar_listas_negras": {
+    "nombre": "Listas negras (Blacklists)",
+    "categoria": "Análisis Externos",
+    "descripcion": "Verifica si el dominio está en blacklists de spam/malware",
+    "activo": true
+  },
+  "analizar_informacion_dns": {
+    "nombre": "Análisis DNS/WHOIS",
+    "categoria": "Análisis Externos",
+    "descripcion": "Obtiene información de registros DNS y DNSSEC",
+    "activo": true
+  },
+  "detectar_waf": {
+    "nombre": "Detección de WAF",
+    "categoria": "Análisis Externos",
+    "descripcion": "Detecta firewalls de aplicación web (Cloudflare, Sucuri, etc.)",
+    "activo": true
+  }
+}

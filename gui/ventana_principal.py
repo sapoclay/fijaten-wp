@@ -23,10 +23,13 @@ from scanner.generador_informes import GeneradorInformes
 from gui.componentes import FrameCabecera, FrameEntrada, FrameResultados, FramePie
 from gui.barra_menu import BarraMenu
 from gui.dialogo_acerca import DialogoAcerca
+from gui.dialogo_opciones import DialogoOpciones, obtener_verificaciones_activas
+from gui.dialogo_escaneo_multiple import DialogoEscaneoMultiple
+from gui.gestor_temas import obtener_gestor_temas
+from gui.notificaciones import notificar_escaneo_completado
 
-# Configuración del tema
-ctk.set_appearance_mode(THEME_MODE)
-ctk.set_default_color_theme(THEME_COLOR)
+# Inicializar gestor de temas (aplica el tema guardado)
+gestor_temas = obtener_gestor_temas()
 
 
 class VentanaPrincipal(ctk.CTk):
@@ -50,7 +53,9 @@ class VentanaPrincipal(ctk.CTk):
         self.barra_menu = BarraMenu(
             self,
             on_exit=self.salir,
-            on_about=self.mostrar_acerca_de
+            on_about=self.mostrar_acerca_de,
+            on_options=self.mostrar_opciones,
+            on_escaneo_multiple=self.mostrar_escaneo_multiple
         )
         
         # Crear la interfaz
@@ -116,13 +121,33 @@ class VentanaPrincipal(ctk.CTk):
         """Muestra el diálogo Acerca de"""
         DialogoAcerca(self)
     
+    def mostrar_opciones(self):
+        """Muestra el diálogo de opciones de escaneo"""
+        DialogoOpciones(self)
+    
+    def mostrar_escaneo_multiple(self):
+        """Muestra el diálogo de escaneo múltiple"""
+        DialogoEscaneoMultiple(self)
+    
     # ═══════════════════════════════════════════════════════════════════
     # ESCANEO
     # ═══════════════════════════════════════════════════════════════════
     
     def actualizar_estado(self, mensaje: str):
-        """Actualiza el mensaje de estado"""
+        """Actualiza el mensaje de estado y la barra de progreso detallada"""
         self.frame_pie.establecer_estado(mensaje)
+        
+        # Extraer información de progreso si está en formato [x/y]
+        import re
+        match = re.match(r'\[(\d+)/(\d+)\]\s*(.+)', mensaje)
+        if match:
+            actual = int(match.group(1))
+            total = int(match.group(2))
+            descripcion = match.group(3)
+            self.after(0, lambda: self.frame_pie.establecer_verificacion_actual(
+                descripcion, actual, total
+            ))
+        
         self.update_idletasks()
     
     def iniciar_escaneo(self):
@@ -136,6 +161,9 @@ class VentanaPrincipal(ctk.CTk):
         if self.escaneando:
             messagebox.showinfo("Info", MESSAGES["scan_in_progress"])
             return
+        
+        # Guardar dominio para notificación
+        self.dominio_actual = dominio
         
         # Limpiar resultados anteriores
         self.limpiar_resultados(mostrar_mensaje=False)
@@ -154,8 +182,15 @@ class VentanaPrincipal(ctk.CTk):
     def _ejecutar_escaneo(self, dominio: str):
         """Ejecuta el escaneo de vulnerabilidades"""
         try:
-            # Crear analizador
-            analizador = AnalizadorWordPress(dominio, callback=self.actualizar_estado)
+            # Obtener verificaciones activas de las opciones
+            verificaciones_activas = obtener_verificaciones_activas()
+            
+            # Crear analizador con las verificaciones seleccionadas
+            analizador = AnalizadorWordPress(
+                dominio, 
+                callback=self.actualizar_estado,
+                verificaciones_activas=verificaciones_activas
+            )
             
             # Ejecutar escaneo
             self.vulnerabilidades, self.info_sitio = analizador.ejecutar_escaneo_completo()
@@ -169,8 +204,18 @@ class VentanaPrincipal(ctk.CTk):
             generador = GeneradorInformes(dominio, self.vulnerabilidades, self.info_sitio)
             self.informe_completo = generador.generar_informe_completo()
             
+            # Guardar puntuación para notificación
+            self.puntuacion_actual = generador.calcular_puntuacion_seguridad()
+            
             # Mostrar resultados en la UI
             self.after(0, lambda: self._mostrar_resultados(generador))
+            
+            # Enviar notificación de escritorio
+            self.after(0, lambda: notificar_escaneo_completado(
+                dominio, 
+                len(self.vulnerabilidades), 
+                self.puntuacion_actual
+            ))
             
         except Exception as e:
             self.after(0, lambda: self._mostrar_error(f"Error durante el análisis: {str(e)}"))

@@ -5,5 +5,6 @@ Módulos de interfaz gráfica para el analizador de vulnerabilidades WordPress
 
 from .ventana_principal import VentanaPrincipal
 from .dialogo_acerca import DialogoAcerca
+from .dialogo_opciones import DialogoOpciones
 
-__all__ = ['VentanaPrincipal', 'DialogoAcerca']
+__all__ = ['VentanaPrincipal', 'DialogoAcerca', 'DialogoOpciones']
