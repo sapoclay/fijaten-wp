@@ -10,6 +10,7 @@ from typing import Callable, Optional
 
 
 class FrameCabecera(ctk.CTkFrame):
+    
     """Frame de cabecera con título y subtítulo"""
     
     def __init__(self, parent, titulo: str, subtitulo: str):
@@ -32,6 +33,7 @@ class FrameCabecera(ctk.CTkFrame):
 
 
 class FrameEntrada(ctk.CTkFrame):
+    
     """Frame de entrada con campo de dominio y botón de análisis"""
     
     def __init__(self, parent, al_analizar: Callable):
@@ -72,7 +74,9 @@ class FrameEntrada(ctk.CTkFrame):
         self.boton_escanear.grid(row=0, column=2, padx=(10, 15), pady=15)
     
     def _configurar_menu_contextual(self):
+        
         """Configura el menú contextual para el campo de entrada"""
+        
         import tkinter as tk
         
         # Crear menú contextual nativo de tkinter
@@ -107,20 +111,24 @@ class FrameEntrada(ctk.CTkFrame):
             command=self.al_analizar
         )
         
-        # Vincular clic derecho - usar after para evitar bloqueos
+        # Vincular clic derecho - se utiliza after para evitar bloqueos
         self.entrada_dominio.bind("<Button-3>", self._mostrar_menu_contextual)
     
     def _mostrar_menu_contextual(self, event):
+        
         """Muestra el menú contextual en la posición del clic"""
+        
         try:
             self.entrada_dominio.focus_set()
-            # Usar after(1, ...) para evitar bloqueo del evento
+            # Usamos after(1, ...) para evitar bloqueo del evento
             self.after(1, lambda: self.menu_contextual.tk_popup(event.x_root, event.y_root))
         except Exception:
             pass
     
     def _pegar(self):
+        
         """Pega el contenido del portapapeles"""
+        
         try:
             # Obtener texto del portapapeles
             texto = self.winfo_toplevel().clipboard_get()
@@ -138,7 +146,9 @@ class FrameEntrada(ctk.CTkFrame):
             print(f"Error al pegar: {e}")
     
     def _copiar(self):
+        
         """Copia el texto seleccionado al portapapeles"""
+        
         try:
             # Intentar obtener selección
             entry = self.entrada_dominio._entry
@@ -166,20 +176,28 @@ class FrameEntrada(ctk.CTkFrame):
             print(f"Error al cortar: {e}")
     
     def _seleccionar_todo(self):
+        
         """Selecciona todo el texto"""
+        
         self.entrada_dominio._entry.select_range(0, "end")
         self.entrada_dominio._entry.icursor("end")
     
     def _limpiar(self):
+        
         """Limpia el campo de entrada"""
+        
         self.entrada_dominio.delete(0, "end")
     
     def obtener_dominio(self) -> str:
+        
         """Obtiene el dominio ingresado"""
+        
         return self.entrada_dominio.get().strip()
     
     def establecer_escaneando(self, escaneando: bool):
+        
         """Configura el estado de escaneo"""
+        
         if escaneando:
             self.boton_escanear.configure(state="disabled", text="⏳ Analizando...")
         else:
@@ -187,6 +205,7 @@ class FrameEntrada(ctk.CTkFrame):
 
 
 class FrameResultados(ctk.CTkFrame):
+    
     """Frame de resultados con pestañas"""
     
     # Fuentes monoespaciadas en orden de preferencia
@@ -198,16 +217,19 @@ class FrameResultados(ctk.CTkFrame):
         self.grid_rowconfigure(1, weight=1)
         
         # Tabs para diferentes vistas
+        
         self.vista_pestanas = ctk.CTkTabview(self)
         self.vista_pestanas.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
         
         # Crear tabs
+        
         self.pestana_resumen = self.vista_pestanas.add("📊 Resumen")
         self.pestana_detalles = self.vista_pestanas.add("🔍 Detalles")
         self.pestana_tecnico = self.vista_pestanas.add("⚙️ Técnico")
         self.pestana_acciones = self.vista_pestanas.add("✅ Plan de acción")
         
         # Configurar cada tab
+        
         for pestana in [self.pestana_resumen, self.pestana_detalles, self.pestana_tecnico, self.pestana_acciones]:
             pestana.grid_columnconfigure(0, weight=1)
             pestana.grid_rowconfigure(0, weight=1)
@@ -343,6 +365,7 @@ class FrameResultados(ctk.CTkFrame):
             if url and len(url) >= 10:
                 urls_encontradas.append(url)
         
+
         # Marcar cada URL encontrada usando búsqueda en el widget
         for url in urls_encontradas:
             inicio_busqueda = "1.0"
@@ -361,21 +384,28 @@ class FrameResultados(ctk.CTkFrame):
                 inicio_busqueda = pos_fin
     
     def _escribir_en_textbox(self, textbox: ctk.CTkTextbox, contenido: str):
+        
         """Escribe contenido en un textbox de solo lectura"""
+        
         textbox.configure(state="normal")  # Habilitar temporalmente
         textbox.delete("1.0", "end")
         textbox.insert("1.0", contenido)
+        
         # Detectar y marcar enlaces clicables
         self._detectar_y_marcar_enlaces(textbox)
         textbox.configure(state="disabled")  # Volver a solo lectura
     
     def mostrar_mensaje(self, mensaje: str):
+        
         """Muestra un mensaje en todas las pestañas"""
+        
         for caja_texto in self.obtener_cajas_texto():
             self._escribir_en_textbox(caja_texto, mensaje)
     
     def limpiar_todo(self):
+        
         """Limpia todas las pestañas"""
+        
         for caja_texto in self.obtener_cajas_texto():
             caja_texto.configure(state="normal")
             caja_texto.delete("1.0", "end")
@@ -472,7 +502,7 @@ class FramePie(ctk.CTkFrame):
         
         Args:
             verificacion: Nombre de la verificación en curso
-            actual: Número de verificación actual (1-based)
+            actual: Número de verificación actual 
             total: Total de verificaciones a realizar
         """
         self._verificacion_actual = verificacion
@@ -483,6 +513,7 @@ class FramePie(ctk.CTkFrame):
             texto = f"🔍 [{actual}/{total}] {verificacion}"
             porcentaje = int((actual / total) * 100)
             self.etiqueta_porcentaje.configure(text=f"{porcentaje}%")
+            
             # Actualizar barra de progreso si no está en modo indeterminado
             try:
                 self.barra_progreso.set(actual / total)
@@ -495,6 +526,7 @@ class FramePie(ctk.CTkFrame):
         self.etiqueta_verificacion.configure(text=texto)
     
     def limpiar_verificacion(self):
+        
         """Limpia la etiqueta de verificación"""
         self.etiqueta_verificacion.configure(text="")
         self.etiqueta_porcentaje.configure(text="")
@@ -503,6 +535,7 @@ class FramePie(ctk.CTkFrame):
         self._total_verificaciones = 0
     
     def establecer_progreso(self, valor: float):
+        
         """Establece el valor del progreso (0-1)"""
         self.barra_progreso.set(valor)
         if valor > 0:

@@ -20,6 +20,7 @@ from configuracion import (
 
 
 class DialogoAcerca(ctk.CTkToplevel):
+    
     """Ventana de diálogo Acerca de"""
     
     def __init__(self, parent):
@@ -52,7 +53,7 @@ class DialogoAcerca(ctk.CTkToplevel):
     
     def centrar_ventana(self, parent):
         """Centra la ventana respecto a la ventana padre"""
-        # Dimensiones fijas
+        # Dimensiones fijas de la ventana
         ancho = 550
         alto = 720
         
@@ -79,6 +80,8 @@ class DialogoAcerca(ctk.CTkToplevel):
         frame_principal = ctk.CTkFrame(self, fg_color="transparent")
         frame_principal.pack(fill="both", expand=True, padx=30, pady=20)
         
+
+
         # ═══════════════════════════════════════════════════════════
         # LOGO
         # ═══════════════════════════════════════════════════════════
@@ -110,6 +113,8 @@ class DialogoAcerca(ctk.CTkToplevel):
             # Logo de texto como fallback
             self._crear_logo_texto(logo_frame)
         
+
+
         # ═══════════════════════════════════════════════════════════
         # TÍTULO Y VERSIÓN
         # ═══════════════════════════════════════════════════════════
@@ -128,6 +133,8 @@ class DialogoAcerca(ctk.CTkToplevel):
         )
         version_label.pack(pady=(0, 15))
         
+        
+        
         # ═══════════════════════════════════════════════════════════
         # DESCRIPCIÓN
         # ═══════════════════════════════════════════════════════════
@@ -144,6 +151,8 @@ class DialogoAcerca(ctk.CTkToplevel):
         desc_textbox.insert("1.0", APP_DESCRIPTION)
         desc_textbox.configure(state="disabled")  # Solo lectura
         
+
+
         # ═══════════════════════════════════════════════════════════
         # AUTOR
         # ═══════════════════════════════════════════════════════════
@@ -154,6 +163,8 @@ class DialogoAcerca(ctk.CTkToplevel):
             text_color="gray"
         )
         author_label.pack(pady=(10, 5))
+        
+        
         
         # ═══════════════════════════════════════════════════════════
         # BOTONES
@@ -194,6 +205,7 @@ class DialogoAcerca(ctk.CTkToplevel):
         )
         logo_text.pack()
     
+    # Función para abrir enlace GitHub en el navegador
     def abrir_github(self):
         """Abre el enlace de GitHub en el navegador"""
         webbrowser.open(APP_GITHUB)

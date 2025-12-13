@@ -35,8 +35,8 @@ class DialogoEscaneoMultiple(ctk.CTkToplevel):
         
         # Configurar ventana
         self.title("🌐 Escaneo Múltiple - Fijaten-WP")
-        self.geometry("700x600")
-        self.minsize(600, 500)
+        self.geometry("900x750")
+        self.minsize(800, 650)
         
         # Hacer modal
         self.transient(parent)
@@ -44,8 +44,8 @@ class DialogoEscaneoMultiple(ctk.CTkToplevel):
         
         # Centrar ventana
         self.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() - 700) // 2
-        y = parent.winfo_y() + (parent.winfo_height() - 600) // 2
+        x = parent.winfo_x() + (parent.winfo_width() - 900) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - 750) // 2
         self.geometry(f"+{x}+{y}")
         
         # Crear interfaz

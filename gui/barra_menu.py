@@ -17,7 +17,7 @@ from gui.dialogo_atajos import DialogoAtajos
 ES_MAC = platform.system() == "Darwin"
 ES_WINDOWS = platform.system() == "Windows"
 
-# Tecla modificadora según SO
+# Tecla modificadora según el SO
 MOD_KEY = "Command" if ES_MAC else "Control"
 MOD_KEY_DISPLAY = "Cmd" if ES_MAC else "Ctrl"
 
@@ -108,7 +108,7 @@ class BarraMenu:
         
         # Historial
         menu_archivo.add_command(
-            label="📚 Historial de Escaneos...",
+            label="📚 Historial de escaneos...",
             command=self._abrir_historial,
             accelerator=f"{MOD_KEY_DISPLAY}+L"
         )
@@ -170,16 +170,18 @@ class BarraMenu:
         self.barra_menu.add_cascade(label="Preferencias", menu=menu_preferencias)
         
         menu_preferencias.add_command(
-            label="⚙️ Opciones de Escaneo...",
+            label="⚙️ Opciones de escaneo...",
             command=self._abrir_opciones,
             accelerator=f"{MOD_KEY_DISPLAY}+O"
         )
         
         menu_preferencias.add_separator()
         
+
         # ═══════════════════════════════════════════════════════════
         # SUBMENÚ DE APARIENCIA / TEMA
         # ═══════════════════════════════════════════════════════════
+        
         menu_apariencia = tk.Menu(menu_preferencias, tearoff=0)
         menu_preferencias.add_cascade(label="🎨 Apariencia", menu=menu_apariencia)
         
@@ -247,7 +249,7 @@ class BarraMenu:
         self.var_tema.set(modo)
     
     def _alternar_tema(self):
-        """Alterna entre modo claro y oscuro"""
+        """Alternancia entre el modo claro y el oscuro"""
         self.gestor_temas.alternar_modo()
         self.var_tema.set(self.gestor_temas.obtener_modo_apariencia())
     
@@ -274,7 +276,7 @@ class BarraMenu:
         self.barra_menu.add_cascade(label="Ayuda", menu=menu_ayuda)
         
         menu_ayuda.add_command(
-            label="⌨️ Atajos de Teclado...",
+            label="⌨️ Atajos de teclado...",
             command=self._mostrar_atajos,
             accelerator=f"{MOD_KEY_DISPLAY}+K"
         )
@@ -287,6 +289,7 @@ class BarraMenu:
             accelerator="F1"
         )
         
+
         # Vincular atajos de teclado
         self._vincular_atajo("k", self._mostrar_atajos)
         self.parent.bind("<F1>", lambda e: self.al_acerca_de())
