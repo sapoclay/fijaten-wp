@@ -170,6 +170,13 @@ class GeneradorInformes:
             if self.info_sitio.get('tema_version'):
                 tema_info += f" v{self.info_sitio['tema_version']}"
             texto += f"   Tema activo: {tema_info}\n"
+
+        if self.info_sitio.get('plugins_enumeracion_bloqueada'):
+            motivo = self.info_sitio.get('plugins_enumeracion_motivo')
+            texto += "   Enumeración de plugins: BLOQUEADA por WAF/Challenge (resultados parciales)\n"
+            if motivo:
+                texto += f"      • Motivo: {motivo}\n"
+
         if self.info_sitio.get('plugins_detectados'):
             texto += f"   Plugins detectados: {len(self.info_sitio['plugins_detectados'])}\n"
             for plugin in self.info_sitio['plugins_detectados'][:10]:

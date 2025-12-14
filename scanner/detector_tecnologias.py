@@ -7,6 +7,7 @@ import requests
 import re
 from typing import Dict, List, Optional, Tuple
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
 
 class DetectorTecnologias:
@@ -241,6 +242,29 @@ class DetectorTecnologias:
                     meta_generator = str(content).lower()
             
             tecnologias_encontradas = []
+
+            # Pre-sondeo de rutas características (solo si el HTML base no da mucha señal)
+            # Nota: "rutas" ya existía en TECNOLOGIAS, pero antes no se usaba.
+            rutas_respuestas: Dict[str, Optional[Dict]] = {}
+            def _sondear_ruta(path: str) -> Optional[Dict]:
+                if not path:
+                    return None
+                if path in rutas_respuestas:
+                    return rutas_respuestas[path]
+                try:
+                    url = urljoin(dominio.rstrip('/') + '/', path.lstrip('/'))
+                    r = self.session.get(url, timeout=self.timeout, verify=False, allow_redirects=False)
+                    data = {
+                        'status': r.status_code,
+                        'location': (r.headers.get('Location') or '').lower(),
+                        'content_type': (r.headers.get('Content-Type') or '').lower(),
+                        'text': (r.text or '').lower()[:5000],
+                    }
+                    rutas_respuestas[path] = data
+                    return data
+                except Exception:
+                    rutas_respuestas[path] = None
+                    return None
             
             for nombre, patrones in self.TECNOLOGIAS.items():
                 confianza = 0
@@ -280,6 +304,29 @@ class DetectorTecnologias:
                     if cookie.lower() in cookies:
                         confianza += 35
                         motivos.append(f"Cookie: {cookie}")
+                        break
+
+                # Verificar rutas características (bajo coste, alta señal para CMS)
+                rutas = patrones.get('rutas', []) or []
+                for ruta in rutas[:2]:  # limitar para no hacer demasiadas peticiones
+                    rinfo = _sondear_ruta(ruta)
+                    if not rinfo:
+                        continue
+
+                    # Señales: el nombre del CMS, o cualquiera de sus indicadores HTML, o redirect típico
+                    señales = [nombre.lower()] + [x.lower() for x in patrones.get('indicadores_html', [])[:5]]
+                    hay_senal = any(s and (s in rinfo['text']) for s in señales)
+                    hay_redirect = False
+                    if rinfo['status'] in (301, 302, 303, 307, 308) and rinfo.get('location'):
+                        hay_redirect = any(s and (s in rinfo['location']) for s in señales)
+
+                    if rinfo['status'] in (200, 401, 403) and hay_senal:
+                        confianza += 45
+                        motivos.append(f"Ruta: {ruta}")
+                        break
+                    if hay_redirect:
+                        confianza += 35
+                        motivos.append(f"Redirect ruta: {ruta}")
                         break
                 
                 if confianza >= 30:
@@ -342,15 +389,18 @@ class DetectorTecnologias:
         
         if resultado.get('cms'):
             cms = resultado['cms']
-            lineas.append(f"📦 CMS: {cms['icono']} {cms['nombre']}")
+            conf = cms.get('confianza')
+            lineas.append(f"📦 CMS: {cms['icono']} {cms['nombre']}" + (f" ({conf}%)" if conf is not None else ""))
         
         if resultado.get('framework'):
             fw = resultado['framework']
-            lineas.append(f"🛠️ Framework: {fw['icono']} {fw['nombre']}")
+            conf = fw.get('confianza')
+            lineas.append(f"🛠️ Framework: {fw['icono']} {fw['nombre']}" + (f" ({conf}%)" if conf is not None else ""))
         
         if resultado.get('lenguaje'):
             lang = resultado['lenguaje']
-            lineas.append(f"💻 Lenguaje: {lang['icono']} {lang['nombre']}")
+            conf = lang.get('confianza')
+            lineas.append(f"💻 Lenguaje: {lang['icono']} {lang['nombre']}" + (f" ({conf}%)" if conf is not None else ""))
         
         if resultado.get('frontend'):
             frontends = [f"{f['icono']} {f['nombre']}" for f in resultado['frontend']]

@@ -7,16 +7,12 @@ import requests
 import re
 import ssl
 import socket
-import urllib3
+import uuid
+import difflib
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional, Tuple
 import concurrent.futures
-
-# Suprimir warnings de SSL cuando se hacen peticiones sin verificación
-# Esto es necesario porque algunos sitios tienen certificados inválidos
-# y necesitamos poder analizarlos de todos modos
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Importar clases desde modelos
 from .modelos import Severidad, Vulnerabilidad
@@ -43,9 +39,14 @@ class AnalizadorWordPress:
         self.info_sitio: Dict = {}
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
         })
         self.timeout = 10
+
+        # Cache para baseline de soft-404 por modo de redirects
+        self._baseline_404: Dict[bool, Optional[Dict]] = {False: None, True: None}
         
         # Inicializar módulos de análisis especializados
         self.verificador_cve = VerificadorCVE(self.session, self.timeout)
@@ -68,30 +69,324 @@ class AnalizadorWordPress:
     
     def _realizar_peticion(self, url: str, metodo: str = 'GET', **kwargs) -> Optional[requests.Response]:
         """Realiza una petición HTTP con manejo de errores"""
+        # Compatibilidad: hay llamadas existentes usando `method=`
+        if 'method' in kwargs and metodo == 'GET':
+            metodo = kwargs.pop('method')
+        metodo = (metodo or 'GET').upper()
+
+        kwargs.setdefault('timeout', self.timeout)
+        kwargs.setdefault('verify', True)
+        kwargs.setdefault('allow_redirects', True)
+
         try:
-            kwargs.setdefault('timeout', self.timeout)
-            kwargs.setdefault('verify', True)
-            kwargs.setdefault('allow_redirects', True)
-            
-            if metodo.upper() == 'GET':
-                return self.session.get(url, **kwargs)
-            elif metodo.upper() == 'HEAD':
-                return self.session.head(url, **kwargs)
-            elif metodo.upper() == 'POST':
-                return self.session.post(url, **kwargs)
+            return self.session.request(metodo, url, **kwargs)
         except requests.exceptions.SSLError:
             # Intentar sin verificación SSL
             kwargs['verify'] = False
             try:
-                if metodo.upper() == 'GET':
-                    return self.session.get(url, **kwargs)
-                elif metodo.upper() == 'HEAD':
-                    return self.session.head(url, **kwargs)
-            except:
+                return self.session.request(metodo, url, **kwargs)
+            except Exception:
+                return None
+        except Exception:
+            return None
+
+    def _normalizar_texto_para_similitud(self, texto: str) -> str:
+        """Normaliza texto para detectar soft-404 por similitud."""
+        if not texto:
+            return ""
+        # Extraer texto visible (reduce ruido de HTML)
+        try:
+            soup = BeautifulSoup(texto, 'html.parser')
+            texto_visible = soup.get_text(' ', strip=True)
+        except Exception:
+            texto_visible = texto
+
+        texto_visible = texto_visible.lower()
+        texto_visible = re.sub(r"\s+", " ", texto_visible)
+        # Evitar que IDs/UUIDs alteren la similitud
+        texto_visible = re.sub(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", "<uuid>", texto_visible)
+        return texto_visible[:6000]
+
+    def _obtener_baseline_404(self, allow_redirects: bool) -> Optional[Dict]:
+        """Obtiene un baseline de respuesta para una ruta inexistente (soft-404)."""
+        if self._baseline_404.get(allow_redirects) is not None:
+            return self._baseline_404[allow_redirects]
+
+        ruta_fake = f"/copilot-soft404-{uuid.uuid4()}.html"
+        resp = self._realizar_peticion(f"{self.dominio}{ruta_fake}", allow_redirects=allow_redirects)
+        if not resp:
+            self._baseline_404[allow_redirects] = None
+            return None
+
+        baseline = {
+            'status_code': resp.status_code,
+            'content_type': (resp.headers.get('Content-Type') or '').lower(),
+            'len': len(resp.text or ''),
+            'text_norm': self._normalizar_texto_para_similitud(resp.text or ''),
+        }
+        self._baseline_404[allow_redirects] = baseline
+        return baseline
+
+    def _es_soft_404(self, resp: requests.Response, allow_redirects: bool) -> bool:
+        """Heurística para detectar páginas inexistentes que devuelven 200 (soft-404)."""
+        if not resp:
+            return False
+
+        baseline = self._obtener_baseline_404(allow_redirects)
+        if not baseline:
+            return False
+
+        # Si el baseline no es 200, normalmente no hay soft-404.
+        if baseline.get('status_code') != 200:
+            return False
+
+        # Solo aplicamos a respuestas 200 HTML/texto
+        content_type = (resp.headers.get('Content-Type') or '').lower()
+        if resp.status_code != 200:
+            return False
+        if not any(x in content_type for x in ['text/html', 'text/plain', 'application/xhtml']):
+            return False
+
+        texto_norm = self._normalizar_texto_para_similitud(resp.text or '')
+        if not texto_norm or not baseline.get('text_norm'):
+            return False
+
+        ratio = difflib.SequenceMatcher(a=baseline['text_norm'], b=texto_norm).ratio()
+        len_resp = len(resp.text or '')
+        len_base = baseline.get('len', 0) or 0
+        rel_diff = abs(len_resp - len_base) / max(len_resp, len_base, 1)
+
+        # Similaridad alta + tamaño parecido => muy probable soft-404
+        return ratio >= 0.92 and rel_diff <= 0.15
+
+    def _texto_parece_challenge(self, texto_norm: str) -> bool:
+        """Detecta páginas de challenge/WAF/captcha que responden con HTML genérico.
+
+        Se basa en texto visible normalizado (sin HTML) para ser robusto.
+        """
+        if not texto_norm:
+            return False
+
+        # Palabras/frases típicas de páginas de verificación
+        indicadores = [
+            'just a moment',
+            'checking your browser',
+            'verify you are human',
+            'verifying your browser',
+            'security check',
+            'enable javascript',
+            'captcha',
+            'recaptcha',
+            'hcaptcha',
+            'cloudflare',
+            'sucuri',
+            'incapsula',
+            'ddos',
+            'waf',
+            'un momento',
+            'espere mientras',
+            'verificando su solicitud',
+            'verificando',
+            'comprobando',
+        ]
+
+        hits = sum(1 for s in indicadores if s in texto_norm)
+        return hits >= 2
+
+    def _baseline_parece_challenge(self, allow_redirects: bool) -> bool:
+        """Devuelve True si el baseline soft-404 parece ser una página de challenge.
+
+        En ese caso, sondear rutas (plugins/readme/php) suele devolver el mismo HTML con 200,
+        causando falsos positivos. Se usa para desactivar enumeraciones por probing.
+        """
+        baseline = self._obtener_baseline_404(allow_redirects)
+        if not baseline:
+            return False
+        if baseline.get('status_code') != 200:
+            return False
+        ct = baseline.get('content_type') or ''
+        if not any(x in ct for x in ['text/html', 'application/xhtml', 'text/plain']):
+            return False
+        return self._texto_parece_challenge(baseline.get('text_norm') or '')
+
+    def _parece_readme_plugin(self, resp: requests.Response, plugin_slug: str, allow_redirects: bool) -> bool:
+        """Heurística conservadora para confirmar que /readme.txt pertenece a un plugin real."""
+        if not resp or resp.status_code != 200:
+            return False
+        if self._es_soft_404(resp, allow_redirects=allow_redirects):
+            return False
+
+        texto = resp.text or ""
+        if not texto:
+            return False
+
+        # Evitar páginas HTML genéricas / errores custom con 200
+        texto_l = texto.lower()
+        content_type = (resp.headers.get('Content-Type') or '').lower()
+        if texto_l.lstrip().startswith('<!doctype') or texto_l.lstrip().startswith('<html'):
+            return False
+        if 'text/html' in content_type and ('stable tag:' not in texto_l and '=== ' not in texto_l):
+            return False
+
+        # Un readme de WordPress suele contener varios de estos marcadores
+        marcadores = [
+            'stable tag:',
+            'requires at least:',
+            'tested up to:',
+            'requires php:',
+            'contributors:',
+            'tags:',
+            'license:',
+            '== description ==',
+            '== installation ==',
+        ]
+
+        hits = sum(1 for m in marcadores if m in texto_l)
+        primera_linea = (texto.splitlines()[0] if texto.splitlines() else '').lower()
+
+        # Aceptar si hay suficiente estructura típica, o si es claramente un encabezado === Plugin Name ===
+        if hits >= 2:
+            return True
+        if primera_linea.startswith('===') and '===' in primera_linea[3:]:
+            # Si el slug aparece, mejor; si no, al menos tiene formato típico
+            return (plugin_slug.replace('-', ' ') in primera_linea) or True
+
+        return False
+
+    def _parece_archivo_plugin_php(self, resp: requests.Response, allow_redirects: bool) -> bool:
+        """Heurística para detectar archivos PHP de plugin existentes sin caer en soft-404."""
+        if not resp:
+            return False
+        if resp.status_code != 200:
+            return False
+        if self._es_soft_404(resp, allow_redirects=allow_redirects):
+            return False
+
+        contenido = resp.text or ''
+        content_type = (resp.headers.get('Content-Type') or '').lower()
+
+        # Muchos plugins al acceder directamente devuelven salida mínima o texto plano.
+        if (len(contenido.strip()) == 0) or (len(contenido) <= 400):
+            return True
+        if 'text/html' not in content_type and '<html' not in (contenido.lower()[:200]):
+            return True
+
+        return False
+
+    def verificar_instalador_wordpress_expuesto(self):
+        """Detecta si el instalador/setup de WordPress está accesible"""
+        self._registrar_mensaje("🧩 Verificando instalador/configuración inicial...")
+
+        hallazgos = []
+
+        # setup-config.php debería ser inaccesible en sitios ya instalados
+        setup_url = f"{self.dominio}/wp-admin/setup-config.php"
+        setup_resp = self._realizar_peticion(setup_url, allow_redirects=False)
+        if setup_resp and setup_resp.status_code == 200 and not self._es_soft_404(setup_resp, allow_redirects=False):
+            texto = (setup_resp.text or "").lower()
+            if any(x in texto for x in ['wp-config.php', 'database', 'db_name', 'configuración', 'configuration']):
+                hallazgos.append(f"Setup/config accesible: {setup_url}")
+                self.vulnerabilidades.append(Vulnerabilidad(
+                    nombre="Asistente de configuración de WordPress expuesto",
+                    severidad=Severidad.CRITICA,
+                    descripcion="El asistente de configuración inicial (setup-config.php) es accesible públicamente.",
+                    explicacion_simple="Es como dejar abierta la pantalla para configurar la base de datos. Puede permitir que alguien intente tomar control del proceso de instalación/configuración.",
+                    recomendacion="Asegurar que WordPress está correctamente instalado y bloquear el acceso a /wp-admin/setup-config.php (403/404).",
+                    detalles=f"URL: {setup_url}",
+                    cwe="CWE-425: Navegación forzada a recursos sensibles"
+                ))
+
+        # install.php normalmente redirige o muestra 'already installed'
+        install_url = f"{self.dominio}/wp-admin/install.php"
+        install_resp = self._realizar_peticion(install_url, allow_redirects=False)
+        if install_resp and install_resp.status_code == 200 and not self._es_soft_404(install_resp, allow_redirects=False):
+            texto = (install_resp.text or "").lower()
+            # Evitar falsos positivos: requerir señales claras del instalador
+            es_instalador = (
+                ('wordpress' in texto) and
+                (('install' in texto) or ('instal' in texto)) and
+                ('<form' in (install_resp.text or '').lower())
+            )
+            if es_instalador and ('already installed' not in texto and 'ya está instalado' not in texto):
+                hallazgos.append(f"Instalador accesible: {install_url}")
+                self.vulnerabilidades.append(Vulnerabilidad(
+                    nombre="Instalador de WordPress accesible",
+                    severidad=Severidad.ALTA,
+                    descripcion="La página de instalación de WordPress (install.php) responde y no indica que esté bloqueada.",
+                    explicacion_simple="Si la instalación no está bien asegurada, un atacante podría intentar interactuar con el flujo de instalación.",
+                    recomendacion="Verificar que el sitio está correctamente instalado y restringir el acceso al instalador (/wp-admin/install.php).",
+                    detalles=f"URL: {install_url}",
+                    cwe="CWE-425: Navegación forzada a recursos sensibles"
+                ))
+
+        if hallazgos:
+            self.info_sitio['instalador_expuesto'] = hallazgos
+
+    def verificar_cookies_seguridad(self):
+        """Verifica flags de seguridad en cookies (Secure/HttpOnly/SameSite)"""
+        self._registrar_mensaje("🍪 Verificando flags de seguridad en cookies...")
+
+        # Intentar obtener cookies desde home y wp-login (suele setear cookies de prueba)
+        urls = [self.dominio, f"{self.dominio}/wp-login.php"]
+        set_cookie_headers: List[str] = []
+
+        for url in urls:
+            resp = self._realizar_peticion(url)
+            if not resp:
+                continue
+            try:
+                raw = getattr(resp, 'raw', None)
+                if raw and getattr(raw, 'headers', None):
+                    set_cookie_headers.extend(raw.headers.get_all('Set-Cookie') or [])
+            except Exception:
                 pass
-        except:
-            pass
-        return None
+            sc = resp.headers.get('Set-Cookie')
+            if sc:
+                set_cookie_headers.append(sc)
+
+        if not set_cookie_headers:
+            return
+
+        parsed = urlparse(self.dominio)
+        es_https = (parsed.scheme or '').lower() == 'https'
+
+        problemas = []
+        for header in set_cookie_headers:
+            # Puede venir una lista concatenada; tomamos "cookie" por "cookie" de forma simple
+            partes = [p.strip() for p in header.split('\n') if p.strip()]
+            if not partes:
+                partes = [header]
+            for cookie in partes:
+                nombre = cookie.split('=', 1)[0].strip()
+                nombre_l = nombre.lower()
+
+                # Enfocar cookies relevantes (WordPress/PHP)
+                if not any(x in nombre_l for x in ['wordpress', 'wp-', 'wp_', 'php', 'comment_author']):
+                    continue
+
+                c_l = cookie.lower()
+                faltantes = []
+                if es_https and 'secure' not in c_l:
+                    faltantes.append('Secure')
+                if 'httponly' not in c_l:
+                    faltantes.append('HttpOnly')
+                if 'samesite' not in c_l:
+                    faltantes.append('SameSite')
+
+                if faltantes:
+                    problemas.append(f"{nombre}: falta {', '.join(faltantes)}")
+
+        if problemas:
+            severidad = Severidad.ALTA if es_https and any('Secure' in p for p in problemas) else Severidad.MEDIA
+            self.vulnerabilidades.append(Vulnerabilidad(
+                nombre="Cookies sin flags de seguridad",
+                severidad=severidad,
+                descripcion="Se detectaron cookies relevantes sin atributos recomendados (Secure/HttpOnly/SameSite).",
+                explicacion_simple="Estas marcas ayudan a que las cookies no se filtren ni sean robadas fácilmente por scripts o a través de conexiones inseguras.",
+                recomendacion="Configurar cookies con Secure y HttpOnly; añadir SameSite=Lax/Strict cuando aplique (WordPress, servidor y/o plugin de seguridad).",
+                detalles="\n".join(problemas[:15]),
+                cwe="CWE-614 / CWE-1004: Cookies sensibles sin flags"
+            ))
     
     def verificar_es_wordpress(self) -> bool:
         """Verifica si el sitio es WordPress"""
@@ -323,7 +618,7 @@ class AnalizadorWordPress:
         archivos_expuestos = []
         for archivo in archivos_backup:
             response = self._realizar_peticion(f"{self.dominio}/{archivo}")
-            if response and response.status_code == 200 and len(response.text) > 100:
+            if response and response.status_code == 200 and len(response.text) > 100 and not self._es_soft_404(response, allow_redirects=True):
                 if 'DB_NAME' in response.text or 'DB_PASSWORD' in response.text:
                     archivos_expuestos.append(archivo)
         
@@ -370,7 +665,7 @@ class AnalizadorWordPress:
         
         # Verificar debug.log
         debug_log = self._realizar_peticion(f"{self.dominio}/wp-content/debug.log")
-        if debug_log and debug_log.status_code == 200 and len(debug_log.text) > 50:
+        if debug_log and debug_log.status_code == 200 and len(debug_log.text) > 50 and not self._es_soft_404(debug_log, allow_redirects=True):
             self.vulnerabilidades.append(Vulnerabilidad(
                 nombre="Archivo debug.log expuesto",
                 severidad=Severidad.ALTA,
@@ -396,8 +691,10 @@ class AnalizadorWordPress:
         directorios_listables = []
         for directorio in directorios:
             response = self._realizar_peticion(f"{self.dominio}{directorio}")
-            if response and response.status_code == 200:
-                if 'Index of' in response.text or 'Parent Directory' in response.text:
+            if response and response.status_code == 200 and not self._es_soft_404(response, allow_redirects=True):
+                texto = response.text or ""
+                # Señales más estrictas para evitar falsos positivos
+                if ('Index of' in texto and '<title' in texto) or ('Parent Directory' in texto):
                     directorios_listables.append(directorio)
         
         if directorios_listables:
@@ -423,7 +720,22 @@ class AnalizadorWordPress:
             plugin_matches = re.findall(r'/wp-content/plugins/([^/\'"]+)', response.text)
             plugins_detectados.extend(set(plugin_matches))
         
-        # Verificar plugins comunes
+        # Si el baseline soft-404 parece una página de challenge/WAF, el probing por rutas
+        # devolverá HTML genérico con 200 y no es fiable.
+        enumeracion_bloqueada = self._baseline_parece_challenge(allow_redirects=False)
+
+        if enumeracion_bloqueada:
+            self.info_sitio['plugins_enumeracion_bloqueada'] = True
+            self.info_sitio['plugins_enumeracion_motivo'] = (
+                "Se detectó una página de verificación/WAF (challenge) que responde con el mismo HTML "
+                "(normalmente 200) para rutas inexistentes. No es fiable comprobar /wp-content/plugins/..."
+            )
+            self._registrar_mensaje(
+                "🛡️ Enumeración de plugins limitada: el sitio parece usar challenge/WAF. "
+                "Se omite el sondeo de readme/archivos para evitar falsos positivos."
+            )
+
+        # Verificar plugins comunes (solo si no está bloqueada la enumeración)
         plugins_comunes = [
             'contact-form-7',
             'elementor',
@@ -436,23 +748,57 @@ class AnalizadorWordPress:
             'wpforms-lite',
             'classic-editor'
         ]
+
+        # Archivos de entrada comunes por plugin (mejora detección cuando readme.txt no es fiable)
+        archivos_entrada_plugin = {
+            'contact-form-7': ['wp-contact-form-7.php'],
+            'elementor': ['elementor.php'],
+            'woocommerce': ['woocommerce.php'],
+            'yoast-seo': ['wp-seo.php'],
+            'wordfence': ['wordfence.php'],
+            'akismet': ['akismet.php'],
+            'jetpack': ['jetpack.php'],
+            'wp-super-cache': ['wp-cache.php'],
+            'wpforms-lite': ['wpforms.php'],
+            'classic-editor': ['classic-editor.php'],
+        }
         
-        for plugin in plugins_comunes:
-            if plugin not in plugins_detectados:
-                response = self._realizar_peticion(f"{self.dominio}/wp-content/plugins/{plugin}/readme.txt")
-                if response and response.status_code == 200:
-                    plugins_detectados.append(plugin)
+        if not enumeracion_bloqueada:
+            for plugin in plugins_comunes:
+                if plugin not in plugins_detectados:
+                    response = self._realizar_peticion(
+                        f"{self.dominio}/wp-content/plugins/{plugin}/readme.txt",
+                        allow_redirects=False
+                    )
+                    if response and self._parece_readme_plugin(response, plugin, allow_redirects=False):
+                        plugins_detectados.append(plugin)
+                        continue
+
+                    # Fallback: probar archivo PHP de entrada (si está mapeado)
+                    candidatos = archivos_entrada_plugin.get(plugin, [])
+                    for archivo_php in candidatos:
+                        resp_php = self._realizar_peticion(
+                            f"{self.dominio}/wp-content/plugins/{plugin}/{archivo_php}",
+                            allow_redirects=False
+                        )
+                        if resp_php and self._parece_archivo_plugin_php(resp_php, allow_redirects=False):
+                            plugins_detectados.append(plugin)
+                            break
         
         self.info_sitio['plugins_detectados'] = list(set(plugins_detectados))
         
         # Verificar readme.txt de plugins (pueden revelar versiones)
         plugins_con_version = []
-        for plugin in plugins_detectados[:10]:  # Limitar a 10 para no tardar mucho
-            response = self._realizar_peticion(f"{self.dominio}/wp-content/plugins/{plugin}/readme.txt")
-            if response and response.status_code == 200:
-                version_match = re.search(r'Stable tag:\s*([\d.]+)', response.text)
-                if version_match:
-                    plugins_con_version.append(f"{plugin} v{version_match.group(1)}")
+        if not enumeracion_bloqueada:
+            for plugin in plugins_detectados[:10]:  # Limitar a 10 para no tardar mucho
+                response = self._realizar_peticion(
+                    f"{self.dominio}/wp-content/plugins/{plugin}/readme.txt",
+                    allow_redirects=False
+                )
+                if response and self._parece_readme_plugin(response, plugin, allow_redirects=False):
+                    version_match = re.search(r'Stable tag:\s*([\d.]+)', response.text or '')
+                    if version_match:
+                        plugins_con_version.append(f"{plugin} v{version_match.group(1)}")
         
         if plugins_con_version:
             self.vulnerabilidades.append(Vulnerabilidad(
@@ -522,24 +868,189 @@ class AnalizadorWordPress:
         """Verifica si wp-cron está expuesto"""
         self._registrar_mensaje("⏰ Verificando wp-cron...")
         
-        response = self._realizar_peticion(f"{self.dominio}/wp-cron.php")
-        if response and response.status_code == 200:
+        response = self._realizar_peticion(f"{self.dominio}/wp-cron.php", allow_redirects=False)
+        if response and response.status_code == 200 and not self._es_soft_404(response, allow_redirects=False):
             self.info_sitio['wp_cron_accesible'] = True
+            self.vulnerabilidades.append(Vulnerabilidad(
+                nombre="wp-cron.php accesible públicamente",
+                severidad=Severidad.BAJA,
+                descripcion="El endpoint wp-cron.php responde públicamente.",
+                explicacion_simple="wp-cron se usa para tareas programadas. Si está expuesto, bots pueden forzarlo repetidamente y causar carga extra.",
+                recomendacion="Deshabilitar wp-cron vía web y usar un cron del sistema (WP_CRON) o proteger el endpoint con reglas del servidor.",
+                detalles=f"URL: {self.dominio}/wp-cron.php",
+                cwe="CWE-400: Consumo incontrolado de recursos"
+            ))
     
     def verificar_rest_api(self):
         """Verifica la exposición de la REST API"""
         self._registrar_mensaje("🔌 Verificando REST API...")
-        
-        response = self._realizar_peticion(f"{self.dominio}/wp-json/")
-        if response and response.status_code == 200:
-            try:
-                data = response.json()
-                if 'routes' in data:
-                    rutas_sensibles = [r for r in data['routes'].keys() if 'user' in r.lower()]
-                    if rutas_sensibles:
-                        self.info_sitio['rest_api_expuesta'] = True
-            except:
-                pass
+
+        # 1) Comprobar que /wp-json/ es realmente JSON (evita falsos positivos)
+        index_resp = self._realizar_peticion(f"{self.dominio}/wp-json/", allow_redirects=True)
+        if not index_resp or index_resp.status_code != 200:
+            return
+
+        try:
+            data = index_resp.json()
+        except Exception:
+            return
+
+        if isinstance(data, dict) and ('routes' in data or 'namespaces' in data):
+            self.info_sitio['rest_api_activa'] = True
+
+        # 2) Solo reportar como vulnerabilidad si el endpoint de usuarios lista usuarios públicamente
+        users_resp = self._realizar_peticion(f"{self.dominio}/wp-json/wp/v2/users?per_page=5&_fields=id,slug,name", allow_redirects=True)
+        if not users_resp or users_resp.status_code != 200:
+            return
+
+        try:
+            users = users_resp.json()
+        except Exception:
+            return
+
+        if not isinstance(users, list) or not users:
+            return
+
+        slugs = []
+        for u in users[:10]:
+            if isinstance(u, dict) and u.get('slug'):
+                slugs.append(str(u.get('slug')))
+
+        if not slugs:
+            return
+
+        # Evitar duplicar con `verificar_enumeracion_usuarios`
+        ya_enumerados = self.info_sitio.get('usuarios_expuestos') or []
+        if any(s in ya_enumerados for s in slugs):
+            self.info_sitio['rest_users_publico'] = True
+            return
+
+        self.info_sitio['rest_users_publico'] = True
+        self.vulnerabilidades.append(Vulnerabilidad(
+            nombre="Listado público de usuarios vía REST API",
+            severidad=Severidad.MEDIA,
+            descripcion="El endpoint /wp-json/wp/v2/users devuelve usuarios sin autenticación.",
+            explicacion_simple="Esto facilita la enumeración de usuarios y puede ayudar a ataques de fuerza bruta o ingeniería social.",
+            recomendacion="Restringir /wp-json/wp/v2/users (plugin de seguridad, reglas WAF/servidor) o endurecer permisos de REST.",
+            detalles="Usuarios (slug) detectados: " + ", ".join(slugs[:10]),
+            cwe="CWE-200: Exposición de información sensible"
+        ))
+
+    def verificar_cabeceras_informativas(self):
+        """Detecta cabeceras que filtran información del servidor/stack"""
+        self._registrar_mensaje("🧾 Verificando cabeceras informativas (Server/X-Powered-By)...")
+
+        response = self._realizar_peticion(self.dominio)
+        if not response:
+            return
+
+        cabeceras = response.headers
+        hallazgos = []
+
+        for key in ['Server', 'X-Powered-By', 'X-AspNet-Version', 'X-Generator', 'X-Drupal-Cache']:
+            if key in cabeceras and cabeceras.get(key):
+                hallazgos.append(f"{key}: {cabeceras.get(key)}")
+
+        if hallazgos:
+            self.vulnerabilidades.append(Vulnerabilidad(
+                nombre="Cabeceras informativas expuestas",
+                severidad=Severidad.BAJA,
+                descripcion="El servidor revela información del stack mediante cabeceras HTTP.",
+                explicacion_simple="Dar pistas sobre servidor/tecnologías ayuda a atacantes a elegir exploits específicos.",
+                recomendacion="Ocultar o reducir cabeceras como Server/X-Powered-By (configuración del servidor/proxy).",
+                detalles="\n".join(hallazgos),
+                cwe="CWE-200: Exposición de información sensible"
+            ))
+
+    def verificar_endpoints_sensibles_wordpress(self):
+        """Comprueba endpoints/ficheros comunes que suelen estar expuestos por error"""
+        self._registrar_mensaje("🗂️ Verificando endpoints/ficheros comunes expuestos...")
+
+        objetivos = [
+            ("/wp-config-sample.php", "Ejemplo de configuración"),
+            ("/readme.html", "Readme HTML de WordPress"),
+            ("/readme.txt", "Readme de WordPress"),
+            ("/license.txt", "Licencia de WordPress"),
+            ("/wp-admin/maint/repair.php", "Reparación de base de datos"),
+        ]
+
+        expuestos = []
+        for ruta, desc in objetivos:
+            resp = self._realizar_peticion(f"{self.dominio}{ruta}", allow_redirects=False)
+            if not resp:
+                continue
+            # 200 suele indicar exposición; 302 a login no necesariamente
+            if resp.status_code == 200 and not self._es_soft_404(resp, allow_redirects=False):
+                texto = (resp.text or "").lower()
+                # Filtros para evitar falsos positivos por páginas custom
+                if ruta.endswith('repair.php') and ('repair database' not in texto and 'reparar base de datos' not in texto):
+                    continue
+                if ruta.endswith('wp-config-sample.php') and 'db_name' not in texto and 'db_password' not in texto and 'define(' not in texto:
+                    continue
+                if ruta.endswith('readme.txt') and ('wordpress' not in texto or 'readme' not in texto):
+                    continue
+                if ruta.endswith('readme.html') and ('wordpress' not in texto or '<html' not in (resp.text or '').lower()):
+                    continue
+                if ruta.endswith('license.txt') and ('gnu general public license' not in texto and 'general public license' not in texto and 'gpl' not in texto):
+                    continue
+                expuestos.append(f"{ruta} - {desc}")
+
+        if expuestos:
+            severidad = Severidad.ALTA if any('repair.php' in x or 'wp-config-sample.php' in x for x in expuestos) else Severidad.MEDIA
+            self.vulnerabilidades.append(Vulnerabilidad(
+                nombre="Endpoints/ficheros comunes expuestos",
+                severidad=severidad,
+                descripcion="Se detectaron endpoints/ficheros típicos accesibles públicamente.",
+                explicacion_simple="Algunos archivos o utilidades de WordPress no deberían estar accesibles o pueden revelar información útil a atacantes.",
+                recomendacion="Bloquear estos recursos (403/404) mediante configuración del servidor o reglas de seguridad.",
+                detalles="\n".join(expuestos),
+                cwe="CWE-200 / CWE-425: Exposición de recursos sensibles"
+            ))
+
+    def verificar_git_expuesto(self):
+        """Detecta si el directorio .git está expuesto (muy bajo falso positivo)."""
+        self._registrar_mensaje("🧷 Verificando exposición de .git...")
+
+        resp = self._realizar_peticion(f"{self.dominio}/.git/HEAD", allow_redirects=False)
+        if not resp or resp.status_code != 200:
+            return
+        if self._es_soft_404(resp, allow_redirects=False):
+            return
+
+        texto = (resp.text or "").strip()
+        if texto.startswith('ref: refs/'):
+            self.vulnerabilidades.append(Vulnerabilidad(
+                nombre="Repositorio .git expuesto",
+                severidad=Severidad.CRITICA,
+                descripcion="El archivo /.git/HEAD es accesible públicamente y parece válido.",
+                explicacion_simple="Esto puede permitir que un atacante descargue el repositorio y obtenga código fuente, credenciales o configuración sensible.",
+                recomendacion="Bloquear el acceso a /.git/ (servidor/WAF) y rotar secretos si hubiera riesgo de exposición.",
+                detalles=f"URL: {self.dominio}/.git/HEAD",
+                cwe="CWE-200: Exposición de información sensible"
+            ))
+
+    def verificar_env_expuesto(self):
+        """Detecta si un archivo .env está expuesto (muy bajo falso positivo si contiene secretos)."""
+        self._registrar_mensaje("🧾 Verificando exposición de .env...")
+
+        resp = self._realizar_peticion(f"{self.dominio}/.env", allow_redirects=False)
+        if not resp or resp.status_code != 200:
+            return
+        if self._es_soft_404(resp, allow_redirects=False):
+            return
+
+        texto = (resp.text or "")
+        # Señales típicas de secretos/config
+        if any(x in texto for x in ['DB_PASSWORD=', 'DB_USERNAME=', 'DB_HOST=', 'WP_HOME=', 'WP_SITEURL=', 'AUTH_KEY', 'SECURE_AUTH_KEY']):
+            self.vulnerabilidades.append(Vulnerabilidad(
+                nombre="Archivo .env expuesto",
+                severidad=Severidad.CRITICA,
+                descripcion="El archivo /.env es accesible públicamente y parece contener configuración sensible.",
+                explicacion_simple="Puede incluir credenciales o claves. Es una exposición crítica.",
+                recomendacion="Bloquear el acceso a /.env y rotar credenciales/claves potencialmente expuestas.",
+                detalles=f"URL: {self.dominio}/.env",
+                cwe="CWE-200: Exposición de información sensible"
+            ))
     
     def verificar_cabeceras_seguridad(self):
         """Verifica las cabeceras de seguridad HTTP"""
@@ -557,7 +1068,12 @@ class AnalizadorWordPress:
             'X-Frame-Options': 'Previene ataques de clickjacking',
             'X-XSS-Protection': 'Ayuda a prevenir ataques XSS',
             'Strict-Transport-Security': 'Fuerza conexiones HTTPS',
-            'Content-Security-Policy': 'Controla qué recursos puede cargar la página'
+            'Content-Security-Policy': 'Controla qué recursos puede cargar la página',
+            'Referrer-Policy': 'Controla cuándo se envía el Referer',
+            'Permissions-Policy': 'Restringe APIs del navegador (cámara, geolocalización, etc.)',
+            'Cross-Origin-Opener-Policy': 'Aísla la ventana para mitigar ataques cross-origin',
+            'Cross-Origin-Resource-Policy': 'Controla qué sitios pueden cargar recursos',
+            'Cross-Origin-Embedder-Policy': 'Refuerza aislamiento de recursos embebidos'
         }
         
         for cabecera, descripcion in cabeceras_importantes.items():
@@ -627,8 +1143,15 @@ class AnalizadorWordPress:
         
         for archivo in archivos_verificar:
             response = self._realizar_peticion(f"{self.dominio}{archivo}")
-            if response and response.status_code == 200:
-                contenido = response.text
+            if response and response.status_code == 200 and not self._es_soft_404(response, allow_redirects=True):
+                # En un WP normal estos archivos se ejecutan y devuelven HTML.
+                # Solo analizar si parece que el servidor está filtrando código fuente PHP.
+                content_type = (response.headers.get('Content-Type') or '').lower()
+                contenido = response.text or ''
+                parece_codigo_php = ('<?php' in contenido) or any(x in content_type for x in ['text/plain', 'text/x-php', 'application/x-httpd-php'])
+                if not parece_codigo_php:
+                    continue
+
                 for patron, descripcion in patrones_malware:
                     if re.search(patron, contenido, re.IGNORECASE):
                         indicadores_encontrados.append(f"{archivo}: {descripcion}")
@@ -645,10 +1168,17 @@ class AnalizadorWordPress:
         
         for archivo in archivos_sospechosos:
             response = self._realizar_peticion(f"{self.dominio}{archivo}")
-            if response and response.status_code == 200:
-                # Si responde 200 a estos archivos, es muy sospechoso
-                if 'php' in archivo and len(response.text) > 0:
-                    indicadores_encontrados.append(f"{archivo}: Archivo sospechoso accesible")
+            if response and response.status_code == 200 and not self._es_soft_404(response, allow_redirects=True):
+                contenido = (response.text or '')
+                # Solo marcar como malware si realmente parece un script/shell, no solo un 200 genérico.
+                if 'php' in archivo:
+                    parece_php = ('<?php' in contenido) or ('eval(' in contenido.lower()) or ('base64_decode' in contenido.lower())
+                    if parece_php and len(contenido.strip()) > 0:
+                        indicadores_encontrados.append(f"{archivo}: Archivo PHP sospechoso accesible")
+                elif archivo.endswith('.htaccess'):
+                    # Si hay .htaccess en uploads accesible no siempre es malware, pero es una señal.
+                    if 'rewriteengine' in contenido.lower() or 'redirect' in contenido.lower():
+                        indicadores_encontrados.append(f"{archivo}: Reglas sospechosas accesibles")
         
         if indicadores_encontrados:
             self.vulnerabilidades.append(Vulnerabilidad(
@@ -691,10 +1221,53 @@ class AnalizadorWordPress:
                 # 200 = accesible (malo para estos archivos)
                 # 403 = prohibido (bien)
                 # 404 = no existe (bien)
-                if response.status_code == 200:
-                    # Verificar que realmente hay contenido sensible
-                    contenido = response.text.lower()
-                    if any(palabra in contenido for palabra in ['db_name', 'db_password', 'define(', '<?php', 'rewriterule', 'error', 'exception', 'stack trace']):
+                if response.status_code == 200 and not self._es_soft_404(response, allow_redirects=True):
+                    contenido_raw = response.text or ''
+                    contenido = contenido_raw.lower()
+                    content_type = (response.headers.get('Content-Type') or '').lower()
+
+                    es_html = '<html' in contenido or 'text/html' in content_type
+
+                    # Heurísticas específicas por archivo para minimizar falsos positivos
+                    if archivo.startswith('/wp-config'):
+                        if any(p in contenido for p in ['db_name', 'db_password', 'define(']) or ('<?php' in contenido_raw):
+                            archivos_expuestos.append(f"{archivo} - {descripcion}")
+                        continue
+
+                    if archivo.startswith('/.git/'):
+                        if any(p in contenido for p in ['[core]', 'repositoryformatversion', 'ref: refs/']):
+                            archivos_expuestos.append(f"{archivo} - {descripcion}")
+                        continue
+
+                    if archivo == '/.env':
+                        if any(p in contenido_raw for p in ['DB_PASSWORD=', 'DB_USERNAME=', 'DB_HOST=', 'WP_HOME=', 'WP_SITEURL=', 'AUTH_KEY', 'SECURE_AUTH_KEY']):
+                            archivos_expuestos.append(f"{archivo} - {descripcion}")
+                        continue
+
+                    if archivo.endswith('composer.json'):
+                        if ('"require"' in contenido) and ('{' in contenido_raw):
+                            archivos_expuestos.append(f"{archivo} - {descripcion}")
+                        continue
+
+                    if archivo.endswith('wc-logs/') or archivo.endswith('backup-db/'):
+                        if ('index of' in contenido) or ('parent directory' in contenido):
+                            archivos_expuestos.append(f"{archivo} - {descripcion}")
+                        continue
+
+                    # Logs: preferir texto plano y señales de stack/errores reales
+                    if archivo in ['/error_log', '/php_error.log', '/wp-content/debug.log']:
+                        if not es_html and any(p in contenido for p in ['fatal', 'warning', 'notice', 'exception', 'stack trace', 'traceback']):
+                            archivos_expuestos.append(f"{archivo} - {descripcion}")
+                        continue
+
+                    # .htaccess
+                    if archivo == '/.htaccess':
+                        if any(p in contenido for p in ['rewriteengine', 'rewriterule', 'deny from all', 'require all denied']):
+                            archivos_expuestos.append(f"{archivo} - {descripcion}")
+                        continue
+
+                    # Fallback conservador: solo si parece texto sensible y no HTML
+                    if not es_html and any(p in contenido for p in ['db_password', 'stack trace', 'traceback', 'exception']):
                         archivos_expuestos.append(f"{archivo} - {descripcion}")
         
         if archivos_expuestos:
@@ -830,36 +1403,32 @@ class AnalizadorWordPress:
         # Intentar acceder a la imagen con un Referer diferente (simulando hotlinking)
         headers_hotlink = {
             'Referer': 'https://sitio-malicioso-ejemplo.com/',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
         
         # Petición normal (desde el mismo sitio)
         response_normal = self._realizar_peticion(imagen_test)
         
         # Petición con referer externo (hotlinking)
-        try:
-            response_hotlink = self.session.get(imagen_test, headers=headers_hotlink, timeout=self.timeout, verify=False)
-            
-            if response_normal and response_hotlink:
-                # Si ambas respuestas son 200 y tienen el mismo contenido, no hay protección
-                if response_normal.status_code == 200 and response_hotlink.status_code == 200:
-                    if len(response_normal.content) == len(response_hotlink.content):
-                        self.vulnerabilidades.append(Vulnerabilidad(
-                            nombre="Sin protección contra hotlinking de imágenes",
-                            severidad=Severidad.BAJA,
-                            descripcion="Las imágenes del sitio pueden ser enlazadas desde otros sitios web.",
-                            explicacion_simple="Otros sitios pueden usar tus imágenes directamente, consumiendo tu ancho de banda y recursos del servidor sin tu permiso.",
-                            recomendacion="Configurar reglas anti-hotlinking en .htaccess o usar un CDN con protección de hotlink.",
-                            detalles=f"Imagen probada: {imagen_test}",
-                            cwe="CWE-346: Error de validación de origen"
-                        ))
-                        self.info_sitio['hotlinking_protegido'] = False
-                    else:
-                        self.info_sitio['hotlinking_protegido'] = True
-                elif response_hotlink.status_code in [403, 401]:
+        response_hotlink = self._realizar_peticion(imagen_test, headers=headers_hotlink, verify=False)
+
+        if response_normal and response_hotlink:
+            # Si ambas respuestas son 200 y tienen el mismo contenido, no hay protección
+            if response_normal.status_code == 200 and response_hotlink.status_code == 200:
+                if len(response_normal.content) == len(response_hotlink.content):
+                    self.vulnerabilidades.append(Vulnerabilidad(
+                        nombre="Sin protección contra hotlinking de imágenes",
+                        severidad=Severidad.BAJA,
+                        descripcion="Las imágenes del sitio pueden ser enlazadas desde otros sitios web.",
+                        explicacion_simple="Otros sitios pueden usar tus imágenes directamente, consumiendo tu ancho de banda y recursos del servidor sin tu permiso.",
+                        recomendacion="Configurar reglas anti-hotlinking en .htaccess o usar un CDN con protección de hotlink.",
+                        detalles=f"Imagen probada: {imagen_test}",
+                        cwe="CWE-346: Error de validación de origen"
+                    ))
+                    self.info_sitio['hotlinking_protegido'] = False
+                else:
                     self.info_sitio['hotlinking_protegido'] = True
-        except:
-            pass
+            elif response_hotlink.status_code in [403, 401]:
+                self.info_sitio['hotlinking_protegido'] = True
     
     def verificar_proteccion_csrf(self):
         """Verifica si los formularios tienen protección CSRF"""
@@ -1109,17 +1678,24 @@ class AnalizadorWordPress:
         # Ejecutar todas las verificaciones (mapeo nombre -> (función, descripción))
         todas_verificaciones = {
             'detectar_version_wordpress': (self.detectar_version_wordpress, "Detectando versión WordPress"),
+            'verificar_instalador_wordpress_expuesto': (self.verificar_instalador_wordpress_expuesto, "Verificando instalador/configuración inicial"),
             'verificar_ssl': (self.verificar_ssl, "Verificando certificado SSL"),
             'verificar_xmlrpc': (self.verificar_xmlrpc, "Analizando XML-RPC"),
             'verificar_enumeracion_usuarios': (self.verificar_enumeracion_usuarios, "Comprobando enumeración de usuarios"),
+            'verificar_git_expuesto': (self.verificar_git_expuesto, "Verificando exposición de .git"),
+            'verificar_env_expuesto': (self.verificar_env_expuesto, "Verificando exposición de .env"),
             'verificar_wp_config_backup': (self.verificar_wp_config_backup, "Buscando archivos de configuración"),
             'verificar_debug_mode': (self.verificar_debug_mode, "Verificando modo debug"),
             'verificar_listado_directorios': (self.verificar_listado_directorios, "Analizando listado de directorios"),
             'verificar_plugins_vulnerables': (self.verificar_plugins_vulnerables, "Detectando plugins"),
             'verificar_temas': (self.verificar_temas, "Analizando temas"),
             'verificar_login_seguridad': (self.verificar_login_seguridad, "Verificando seguridad del login"),
+            'verificar_wp_cron': (self.verificar_wp_cron, "Verificando wp-cron"),
             'verificar_rest_api': (self.verificar_rest_api, "Analizando REST API"),
             'verificar_cabeceras_seguridad': (self.verificar_cabeceras_seguridad, "Verificando cabeceras HTTP"),
+            'verificar_cookies_seguridad': (self.verificar_cookies_seguridad, "Verificando cookies"),
+            'verificar_cabeceras_informativas': (self.verificar_cabeceras_informativas, "Verificando cabeceras informativas"),
+            'verificar_endpoints_sensibles_wordpress': (self.verificar_endpoints_sensibles_wordpress, "Verificando endpoints sensibles"),
             'verificar_archivo_robots': (self.verificar_archivo_robots, "Analizando robots.txt"),
             'verificar_malware_conocido': (self.verificar_malware_conocido, "Buscando malware conocido"),
             'verificar_permisos_archivos': (self.verificar_permisos_archivos, "Verificando permisos de archivos"),

@@ -268,6 +268,16 @@ class VentanaPrincipal(ctk.CTk):
         """Muestra los resultados en la interfaz"""
         resumen = generador.generar_resumen_ejecutivo()
         puntuacion = generador.calcular_puntuacion_seguridad()
+
+        aviso_plugins = ""
+        if self.info_sitio.get('plugins_enumeracion_bloqueada'):
+            motivo = self.info_sitio.get('plugins_enumeracion_motivo')
+            aviso_plugins = (
+                "\n🛡️ Aviso: Enumeración de plugins limitada\n"
+                "   El sitio parece usar un challenge/WAF y puede devolver el mismo HTML para rutas inexistentes.\n"
+                "   Para evitar falsos positivos, el escaneo no intenta confirmar plugins por /wp-content/plugins/...\n"
+                + (f"   Motivo: {motivo}\n" if motivo else "")
+            )
         
         contenido_resumen = f"""
 ████████████████████████████████████████████████████████████████████
@@ -278,6 +288,8 @@ class VentanaPrincipal(ctk.CTk):
 📅 Fecha: {generador.fecha}
 
 {resumen}
+
+{aviso_plugins}
 
 {'─' * 70}
 

@@ -5,12 +5,8 @@ Comprueba si el dominio está en listas negras de spam/malware
 
 import socket
 import requests
-import urllib3
 from typing import List, Dict, Optional
 from .modelos import Vulnerabilidad, Severidad
-
-# Suprimir warnings de SSL para peticiones sin verificación
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class VerificadorBlacklist:

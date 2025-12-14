@@ -5,6 +5,12 @@
     "descripcion": "Detecta si la versión de WordPress está expuesta",
     "activo": true
   },
+  "verificar_instalador_wordpress_expuesto": {
+    "nombre": "Instalador/Setup expuesto",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Detecta si /wp-admin/install.php o /wp-admin/setup-config.php están accesibles",
+    "activo": true
+  },
   "verificar_ssl": {
     "nombre": "Verificar SSL/HTTPS",
     "categoria": "Análisis Básicos",
@@ -21,6 +27,18 @@
     "nombre": "Enumeración de usuarios",
     "categoria": "Análisis Básicos",
     "descripcion": "Verifica si se pueden descubrir nombres de usuario",
+    "activo": true
+  },
+  "verificar_git_expuesto": {
+    "nombre": "Exposición .git",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Detecta si el repositorio .git está accesible públicamente (/.git/HEAD)",
+    "activo": true
+  },
+  "verificar_env_expuesto": {
+    "nombre": "Exposición .env",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Detecta si el archivo .env es accesible y contiene configuración sensible",
     "activo": true
   },
   "verificar_wp_config_backup": {
@@ -59,6 +77,12 @@
     "descripcion": "Verifica protecciones en la página de login",
     "activo": true
   },
+  "verificar_wp_cron": {
+    "nombre": "wp-cron",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Comprueba si wp-cron.php está expuesto públicamente",
+    "activo": true
+  },
   "verificar_rest_api": {
     "nombre": "REST API",
     "categoria": "Análisis Básicos",
@@ -69,6 +93,24 @@
     "nombre": "Cabeceras HTTP",
     "categoria": "Análisis Básicos",
     "descripcion": "Verifica cabeceras de seguridad HTTP",
+    "activo": true
+  },
+  "verificar_cookies_seguridad": {
+    "nombre": "Cookies (flags seguridad)",
+    "categoria": "Análisis Avanzados",
+    "descripcion": "Detecta cookies sin Secure/HttpOnly/SameSite",
+    "activo": true
+  },
+  "verificar_cabeceras_informativas": {
+    "nombre": "Cabeceras informativas",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Detecta cabeceras como Server/X-Powered-By que filtran tecnología",
+    "activo": true
+  },
+  "verificar_endpoints_sensibles_wordpress": {
+    "nombre": "Endpoints sensibles",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Busca endpoints comunes expuestos (readme.txt, license.txt, wp-config-sample.php, repair.php)",
     "activo": true
   },
   "verificar_archivo_robots": {

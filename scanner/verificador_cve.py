@@ -6,12 +6,8 @@ Incluye enlaces a NVD, MITRE y búsqueda de CPEs
 
 import requests
 import re
-import urllib3
 from typing import List, Dict, Optional, Tuple
 from .modelos import Vulnerabilidad, Severidad
-
-# Suprimir warnings de SSL para peticiones sin verificación
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class VerificadorCVE:
@@ -25,6 +21,10 @@ class VerificadorCVE:
     URL_WPSCAN = "https://wpscan.com/?s="
     URL_PATCHSTACK = "https://patchstack.com/database/?s="
     URL_EXPLOIT_DB = "https://www.exploit-db.com/search?q="
+
+    NVD_API_HEADERS = {
+        'User-Agent': 'Fijaten-WP Security Scanner/1.0'
+    }
     
     # Base de datos local de plugins vulnerables conocidos
     PLUGINS_VULNERABLES = {
@@ -197,11 +197,8 @@ class VerificadorCVE:
         """
         try:
             url = f"{self.URL_NVD_API}?cveId={cve_id}"
-            headers = {
-                'User-Agent': 'Fijaten-WP Security Scanner/1.0'
-            }
-            
-            response = self.session.get(url, headers=headers, timeout=self.timeout)
+
+            response = self.session.get(url, headers=self.NVD_API_HEADERS, timeout=self.timeout)
             
             if response.status_code == 200:
                 data = response.json()
