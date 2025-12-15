@@ -311,13 +311,10 @@ class VerificadorCVE:
                 'url_exploit_db': enlaces_busqueda.get('exploit_db', '')
             }
             
-            # Si no hay versión, asumimos que podría ser vulnerable
+            # Si no hay versión, NO asumimos vulnerabilidad (evitar falsos positivos)
+            # Solo indicamos que el plugin tiene CVEs conocidos pero no podemos verificar
             if not version:
-                resultado_base.update({
-                    'version_detectada': 'desconocida',
-                    'nota': 'No se pudo determinar la versión - verificar manualmente'
-                })
-                return resultado_base
+                return None  # No reportar sin versión confirmada
             
             # Verificar si la versión es vulnerable
             for version_afectada in info_vuln['versiones_afectadas']:
@@ -359,9 +356,9 @@ class VerificadorCVE:
                 'url_exploit_db': enlaces_busqueda.get('exploit_db', '')
             }
             
+            # Si no hay versión, NO asumimos vulnerabilidad (evitar falsos positivos)
             if not version:
-                resultado_base['version_detectada'] = 'desconocida'
-                return resultado_base
+                return None  # No reportar sin versión confirmada
             
             for version_afectada in info_vuln['versiones_afectadas']:
                 if self._comparar_versiones(version, version_afectada):

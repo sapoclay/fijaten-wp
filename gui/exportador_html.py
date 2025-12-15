@@ -303,11 +303,22 @@ class ExportadorHTML:
         
         # Filtrar información relevante
         items = []
+        # Claves a omitir en la tabla genérica
+        claves_omitir = {'error', 'tecnologias_detectadas', 'no_es_wordpress', 
+                         'plugins_detectados', 'plugins_con_versiones'}
+        
         for clave, valor in info_sitio.items():
-            if not clave.startswith('_') and valor and clave not in ['error', 'tecnologias_detectadas', 'no_es_wordpress']:
+            if not clave.startswith('_') and valor and clave not in claves_omitir:
                 clave_formateada = clave.replace('_', ' ').title()
                 if isinstance(valor, list):
-                    valor_str = ', '.join(str(v) for v in valor[:10])
+                    # Formatear lista de tuplas para plugins
+                    if valor and isinstance(valor[0], tuple):
+                        valor_str = ', '.join(
+                            f"{v[0]} v{v[1]}" if v[1] else f"{v[0]}" 
+                            for v in valor[:10]
+                        )
+                    else:
+                        valor_str = ', '.join(str(v) for v in valor[:10])
                     if len(valor) > 10:
                         valor_str += f" (+{len(valor) - 10} más)"
                 elif isinstance(valor, dict):
@@ -315,6 +326,20 @@ class ExportadorHTML:
                 else:
                     valor_str = str(valor)
                 items.append((clave_formateada, valor_str))
+        
+        # Añadir plugins con versiones de forma especial
+        plugins_con_versiones = info_sitio.get('plugins_con_versiones', [])
+        if plugins_con_versiones:
+            plugins_formateados = []
+            for plugin, version in plugins_con_versiones[:10]:
+                if version:
+                    plugins_formateados.append(f"{plugin} v{version}")
+                else:
+                    plugins_formateados.append(f"{plugin} (versión desconocida)")
+            valor_str = ', '.join(plugins_formateados)
+            if len(plugins_con_versiones) > 10:
+                valor_str += f" (+{len(plugins_con_versiones) - 10} más)"
+            items.append(('Plugins Detectados', valor_str))
         
         if not items:
             return ''

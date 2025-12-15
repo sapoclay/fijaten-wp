@@ -254,16 +254,29 @@ class AnalizadorDNS:
         
         analisis = self.analizar_seguridad_dns(dominio)
         
-        if analisis['problemas']:
+        # Solo reportar como vulnerabilidad si hay problemas críticos (sin SPF ni DMARC)
+        # DMARC solo es un problema si el sitio probablemente envía emails (tiene MX)
+        problemas = analisis.get('problemas', [])
+        
+        # Filtrar: solo reportar si falta SPF (más importante)
+        problemas_criticos = [p for p in problemas if 'SPF' in p]
+        
+        if problemas_criticos:
+            # Añadir los demás problemas como info adicional
+            todos_problemas = problemas_criticos + [p for p in problemas if p not in problemas_criticos]
             vulnerabilidades.append(Vulnerabilidad(
                 nombre="Configuración DNS de seguridad incompleta",
-                severidad=Severidad.MEDIA,
-                descripcion="Faltan registros DNS importantes para la seguridad del email.",
-                explicacion_simple="Sin SPF y DMARC, los atacantes pueden enviar emails haciéndose pasar por tu dominio (phishing).",
-                recomendacion="Configurar registros SPF, DKIM y DMARC en tu DNS.",
-                detalles="\n".join(analisis['problemas']),
+                severidad=Severidad.BAJA,
+                descripcion="Faltan registros DNS recomendados para la seguridad del email.",
+                explicacion_simple="Sin SPF, los atacantes pueden enviar emails haciéndose pasar por tu dominio (phishing). DMARC es una capa adicional recomendada.",
+                recomendacion="Configurar registros SPF y opcionalmente DKIM/DMARC en tu DNS.",
+                detalles="\n".join(todos_problemas),
                 cwe="CWE-290: Bypass de autenticación por suplantación"
             ))
+        elif problemas:
+            # Solo falta DMARC: guardar info pero no reportar como vulnerabilidad
+            # (muchos sitios legítimos no tienen DMARC configurado)
+            pass
         
         return vulnerabilidades
     

@@ -23,7 +23,7 @@ from scanner.generador_informes import GeneradorInformes
 from gui.componentes import FrameCabecera, FrameEntrada, FrameResultados, FramePie
 from gui.barra_menu import BarraMenu
 from gui.dialogo_acerca import DialogoAcerca
-from gui.dialogo_opciones import DialogoOpciones, obtener_verificaciones_activas
+from gui.dialogo_opciones import DialogoOpciones, obtener_verificaciones_activas, obtener_usar_navegador_challenge
 from gui.dialogo_escaneo_multiple import DialogoEscaneoMultiple
 from gui.dialogo_historial import DialogoHistorial
 from gui.gestor_temas import obtener_gestor_temas
@@ -213,11 +213,15 @@ class VentanaPrincipal(ctk.CTk):
             # Obtener verificaciones activas de las opciones
             verificaciones_activas = obtener_verificaciones_activas()
             
+            # Obtener si se debe usar navegador para challenges
+            usar_navegador = obtener_usar_navegador_challenge()
+            
             # Crear analizador con las verificaciones seleccionadas
             analizador = AnalizadorWordPress(
                 dominio, 
                 callback=self.actualizar_estado,
-                verificaciones_activas=verificaciones_activas
+                verificaciones_activas=verificaciones_activas,
+                usar_navegador_challenge=usar_navegador
             )
             
             # Ejecutar escaneo
@@ -225,8 +229,11 @@ class VentanaPrincipal(ctk.CTk):
             
             # Verificar si hubo error
             if 'error' in self.info_sitio:
+                # Verificar si es sitio con challenge/WAF
+                if self.info_sitio.get('sitio_con_challenge'):
+                    self.after(0, lambda: self._mostrar_sitio_con_challenge(self.info_sitio))
                 # Verificar si hay tecnologías detectadas (sitio no WordPress)
-                if self.info_sitio.get('no_es_wordpress') and 'informe_tecnologias' in self.info_sitio:
+                elif self.info_sitio.get('no_es_wordpress') and 'informe_tecnologias' in self.info_sitio:
                     self.after(0, lambda: self._mostrar_tecnologias_detectadas(self.info_sitio))
                 else:
                     self.after(0, lambda: self._mostrar_error(self.info_sitio['error']))
@@ -472,6 +479,149 @@ Como este sitio no es WordPress, considera:
                 lineas.append(f"   {d}")
         
         return '\n'.join(lineas) if lineas else "No se detectaron tecnologías específicas."
+    
+    def _mostrar_sitio_con_challenge(self, info_sitio: dict):
+        """Muestra mensaje cuando el sitio tiene protección JavaScript challenge"""
+        motivo = info_sitio.get('challenge_motivo', 
+            'El sitio utiliza un sistema de protección que requiere JavaScript.')
+        tipo_waf = info_sitio.get('tipo_waf', 'Desconocido')
+        
+        # Consejos específicos según el tipo de WAF
+        consejos_waf = {
+            'Cloudflare': "Si tienes acceso al panel de Cloudflare, desactiva temporalmente 'Under Attack Mode'.",
+            'OpenResty/Nginx WAF': "Este WAF usa verificación JavaScript del lado del servidor. Requiere lista blanca de IP.",
+            'Sucuri WAF': "Contacta con el administrador para añadir tu IP a la lista blanca de Sucuri.",
+            'Wordfence': "Wordfence puede configurarse para permitir ciertos user-agents o IPs.",
+        }
+        
+        consejo_especifico = consejos_waf.get(tipo_waf, "")
+        if consejo_especifico:
+            consejo_especifico = f"\n\n💡 Consejo para {tipo_waf}:\n   {consejo_especifico}"
+
+        contenido = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║           🛡️ SITIO PROTEGIDO CON CHALLENGE                       ║
+╚══════════════════════════════════════════════════════════════════╝
+
+El sitio web tiene una protección de seguridad activa que impide
+el análisis automatizado.
+
+{'─' * 70}
+
+🔒 PROTECCIÓN DETECTADA: {tipo_waf}
+
+📋 MOTIVO:
+{motivo}
+{consejo_especifico}
+
+{'─' * 70}
+
+⚠️  ¿QUÉ SIGNIFICA ESTO?
+
+Este sitio utiliza un sistema de verificación (WAF, CDN, o similar)
+que requiere que el visitante ejecute JavaScript en su navegador
+antes de mostrar el contenido real.
+
+Sistemas típicos que usan esta protección:
+    • Cloudflare (Under Attack Mode)
+    • AWS WAF
+    • Sucuri
+    • OpenResty con verificación
+    • Otros firewalls de aplicaciones web
+
+{'─' * 70}
+
+💡 SUGERENCIAS:
+
+1. Si eres el administrador del sitio:
+   • Añade tu IP a la lista blanca del WAF/CDN
+   • Temporalmente desactiva el modo "Under Attack" para analizar
+   • Usa el escáner desde la red interna del servidor
+
+2. Si no tienes acceso administrativo:
+   • Este sitio tiene buena protección contra bots/scrapers
+   • No es posible analizar automáticamente sin pasar el challenge
+   • Contacta al administrador si necesitas un análisis de seguridad
+
+3. Alternativas:
+   • Analiza el sitio desde un navegador real manualmente
+   • Solicita al administrador que ejecute el análisis internamente
+"""
+        
+        self.frame_resultados.establecer_contenido(
+            resumen=contenido,
+            detalles=f"""
+🔍 EXPLICACIÓN SIMPLE
+{'─' * 50}
+
+El sitio web que intentas analizar está protegido por un sistema
+de seguridad avanzado que verifica si el visitante es humano.
+
+Como Fijaten-WP no ejecuta JavaScript (como haría un navegador),
+no puede pasar esta verificación y por tanto no puede acceder
+al contenido real del sitio.
+
+Esto es realmente BUENO para la seguridad del sitio, ya que:
+• Protege contra ataques automatizados
+• Bloquea bots maliciosos
+• Reduce el riesgo de ataques DDoS
+• Dificulta el scraping no autorizado
+
+Si necesitas analizar este sitio, consulta las sugerencias
+en la pestaña de resumen.
+""",
+            tecnico=f"""
+📋 INFORMACIÓN TÉCNICA
+{'─' * 50}
+
+Tipo de protección detectada: Challenge JavaScript (browser verification)
+
+{motivo}
+
+Comportamiento detectado:
+• La página inicial devuelve un script de recarga automática
+• Se requiere ejecutar JavaScript para obtener cookies de sesión
+• Sin las cookies correctas, el servidor no muestra el contenido real
+
+Headers típicos de este tipo de protección:
+• Set-Cookie con tokens de verificación
+• Redirección automática tras validación
+• Content-Type: text/html con página de espera
+""",
+            acciones=f"""
+📋 RECOMENDACIONES
+{'─' * 50}
+
+PARA ADMINISTRADORES DEL SITIO:
+
+1. 🔓 Desactivar temporalmente la protección
+   Si usas Cloudflare, cambia de "I'm Under Attack!" a
+   "Essentially Off" temporalmente.
+
+2. 📋 Añadir IP a lista blanca
+   Añade la IP desde donde ejecutas el escáner a la
+   lista blanca de tu WAF/CDN.
+
+3. 🖥️ Ejecutar desde el servidor
+   Instala Fijaten-WP directamente en el servidor
+   y analiza usando localhost o la IP interna.
+
+PARA USUARIOS EXTERNOS:
+
+1. 📞 Contactar al administrador
+   Solicita que realicen un análisis interno o que
+   te proporcionen acceso temporal.
+
+2. 🔍 Análisis manual
+   Usa las herramientas de desarrollador del navegador
+   para revisar aspectos de seguridad manualmente.
+"""
+        )
+        
+        self.frame_pie.establecer_estado(
+            "🛡️ Sitio protegido con challenge JavaScript - No se puede analizar"
+        )
+        self.frame_pie.establecer_progreso(0)
     
     def _finalizar_escaneo(self):
         """Restaura la interfaz después del escaneo"""

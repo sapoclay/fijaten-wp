@@ -172,5 +172,59 @@
     "categoria": "Análisis Externos",
     "descripcion": "Detecta firewalls de aplicación web (Cloudflare, Sucuri, etc.)",
     "activo": true
+  },
+  "verificar_uploads_php": {
+    "nombre": "PHP en uploads",
+    "categoria": "Análisis Avanzados",
+    "descripcion": "Detecta archivos PHP ejecutables en /wp-content/uploads/ (posible backdoor)",
+    "activo": true
+  },
+  "verificar_readme_html": {
+    "nombre": "readme.html expuesto",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Verifica si readme.html de WordPress está accesible (revela versión)",
+    "activo": true
+  },
+  "verificar_license_txt": {
+    "nombre": "license.txt expuesto",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Verifica si license.txt de WordPress está accesible",
+    "activo": true
+  },
+  "verificar_oembed_info": {
+    "nombre": "oEmbed información",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Verifica si oEmbed expone información sensible (autores, proveedor)",
+    "activo": true
+  },
+  "verificar_author_archives": {
+    "nombre": "Enumeración via ?author=",
+    "categoria": "Análisis Básicos",
+    "descripcion": "Detecta enumeración de autores mediante archivos de autor (?author=N)",
+    "activo": true
+  },
+  "verificar_timthumb": {
+    "nombre": "Script TimThumb",
+    "categoria": "Análisis Avanzados",
+    "descripcion": "Detecta el script vulnerable TimThumb (ejecución remota de código)",
+    "activo": true
+  },
+  "verificar_phpmyadmin_adminer": {
+    "nombre": "phpMyAdmin/Adminer",
+    "categoria": "Análisis Avanzados",
+    "descripcion": "Detecta herramientas de administración de BD expuestas públicamente",
+    "activo": true
+  },
+  "verificar_wp_mail_smtp_debug": {
+    "nombre": "Logs SMTP expuestos",
+    "categoria": "Análisis Avanzados",
+    "descripcion": "Busca logs de debug de email (WP Mail SMTP) accesibles",
+    "activo": true
+  },
+  "verificar_backups_comunes": {
+    "nombre": "Backups expuestos",
+    "categoria": "Análisis Avanzados",
+    "descripcion": "Busca archivos de backup (.zip, .sql, Updraft, AI1WM) accesibles públicamente",
+    "activo": true
   }
 }

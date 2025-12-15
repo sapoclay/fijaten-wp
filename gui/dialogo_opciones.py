@@ -11,6 +11,16 @@ from typing import Dict, Callable, Optional
 
 # Ruta del archivo de configuración de opciones
 CONFIG_FILE = Path(__file__).parent.parent / "opciones_escaneo.json"
+CONFIG_GLOBAL_FILE = Path(__file__).parent.parent / "config_global.json"
+
+# Configuraciones globales (no son verificaciones, son opciones del escáner)
+CONFIG_GLOBAL_DEFAULT = {
+    "usar_navegador_challenge": {
+        "nombre": "Usar navegador para challenges",
+        "descripcion": "Usa Chrome/Selenium para pasar protecciones WAF/challenge (requiere Chrome instalado)",
+        "activo": False
+    }
+}
 
 
 # Definición de todas las opciones disponibles
@@ -185,6 +195,37 @@ def guardar_opciones(opciones: Dict):
         print(f"Error guardando opciones: {e}")
 
 
+def cargar_config_global() -> Dict:
+    """Carga la configuración global"""
+    try:
+        if CONFIG_GLOBAL_FILE.exists():
+            with open(CONFIG_GLOBAL_FILE, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                # Combinar con defaults
+                for clave, valor in CONFIG_GLOBAL_DEFAULT.items():
+                    if clave not in config:
+                        config[clave] = valor
+                return config
+    except Exception:
+        pass
+    return CONFIG_GLOBAL_DEFAULT.copy()
+
+
+def guardar_config_global(config: Dict):
+    """Guarda la configuración global"""
+    try:
+        with open(CONFIG_GLOBAL_FILE, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"Error guardando config global: {e}")
+
+
+def obtener_usar_navegador_challenge() -> bool:
+    """Devuelve si se debe usar el navegador para challenges"""
+    config = cargar_config_global()
+    return config.get("usar_navegador_challenge", {}).get("activo", False)
+
+
 def obtener_verificaciones_activas() -> list:
     
     """Devuelve lista de nombres de verificaciones activas"""
@@ -201,12 +242,13 @@ class DialogoOpciones(ctk.CTkToplevel):
         self.parent = parent
         self.on_save = on_save
         self.opciones = cargar_opciones()
+        self.config_global = cargar_config_global()
         self.checkboxes: Dict[str, ctk.CTkCheckBox] = {}
         
         # Configuración de la ventana
         self.title("Opciones de Escaneo")
-        self.geometry("650x600")
-        self.minsize(550, 500)
+        self.geometry("650x650")
+        self.minsize(550, 550)
         
         # Hacerla modal
         self.transient(parent)
@@ -215,7 +257,7 @@ class DialogoOpciones(ctk.CTkToplevel):
         # Centrar en pantalla
         self.update_idletasks()
         x = (self.winfo_screenwidth() - 650) // 2
-        y = (self.winfo_screenheight() - 600) // 2
+        y = (self.winfo_screenheight() - 650) // 2
         self.geometry(f"+{x}+{y}")
         
         # Crear interfaz
@@ -331,6 +373,84 @@ class DialogoOpciones(ctk.CTkToplevel):
                 
                 row += 1
         
+        # ═══════════════════════════════════════════════════════════
+        # SECCIÓN DE CONFIGURACIÓN AVANZADA
+        # ═══════════════════════════════════════════════════════════
+        frame_avanzado = ctk.CTkFrame(self.scroll_frame, fg_color=("gray85", "gray20"))
+        frame_avanzado.grid(row=row, column=0, sticky="ew", pady=(20, 5))
+        frame_avanzado.grid_columnconfigure(0, weight=1)
+        
+        ctk.CTkLabel(
+            frame_avanzado,
+            text="  🔧 Configuración Avanzada",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            anchor="w"
+        ).grid(row=0, column=0, sticky="w", padx=10, pady=8)
+        
+        row += 1
+        
+        # Opción: Usar navegador para challenges
+        frame_nav = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        frame_nav.grid(row=row, column=0, sticky="ew", padx=10, pady=5)
+        frame_nav.grid_columnconfigure(1, weight=1)
+        
+        nav_config = self.config_global.get("usar_navegador_challenge", {})
+        self.var_navegador = ctk.BooleanVar(value=nav_config.get("activo", False))
+        
+        self.checkbox_navegador = ctk.CTkCheckBox(
+            frame_nav,
+            text="🌐 Usar navegador para challenges",
+            variable=self.var_navegador,
+            font=ctk.CTkFont(size=13),
+            command=self._actualizar_navegador
+        )
+        self.checkbox_navegador.grid(row=0, column=0, sticky="w")
+        
+        ctk.CTkLabel(
+            frame_nav,
+            text="Bypassa protecciones WAF/Cloudflare (requiere Chrome)",
+            font=ctk.CTkFont(size=11),
+            text_color="gray",
+            anchor="w"
+        ).grid(row=0, column=1, sticky="w", padx=(20, 0))
+        
+        row += 1
+        
+        # Botón para verificar/instalar dependencias
+        frame_instalar = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        frame_instalar.grid(row=row, column=0, sticky="ew", padx=30, pady=(5, 10))
+        
+        self.btn_verificar_nav = ctk.CTkButton(
+            frame_instalar,
+            text="🔍 Verificar soporte",
+            width=140,
+            height=28,
+            font=ctk.CTkFont(size=11),
+            command=self._verificar_soporte_navegador
+        )
+        self.btn_verificar_nav.pack(side="left", padx=(0, 10))
+        
+        self.btn_instalar_deps = ctk.CTkButton(
+            frame_instalar,
+            text="📦 Instalar dependencias",
+            width=160,
+            height=28,
+            font=ctk.CTkFont(size=11),
+            fg_color="orange",
+            command=self._instalar_dependencias_navegador
+        )
+        self.btn_instalar_deps.pack(side="left")
+        
+        self.lbl_estado_nav = ctk.CTkLabel(
+            frame_instalar,
+            text="",
+            font=ctk.CTkFont(size=11),
+            text_color="gray"
+        )
+        self.lbl_estado_nav.pack(side="left", padx=(15, 0))
+        
+        row += 1
+        
         # Frame de botones inferiores
         frame_botones = ctk.CTkFrame(self, fg_color="transparent")
         frame_botones.grid(row=2, column=0, sticky="ew", padx=20, pady=15)
@@ -421,6 +541,7 @@ class DialogoOpciones(ctk.CTkToplevel):
     def _guardar_y_cerrar(self):
         """Guarda las opciones y cierra el diálogo"""
         guardar_opciones(self.opciones)
+        guardar_config_global(self.config_global)
         
         # Contar opciones activas
         activas = sum(1 for v in self.opciones.values() if v.get("activo", True))
@@ -435,3 +556,88 @@ class DialogoOpciones(ctk.CTkToplevel):
             f"Verificaciones activas: {activas}/{total}"
         )
         self.destroy()
+    
+    def _actualizar_navegador(self):
+        """Actualiza la opción de usar navegador para challenges"""
+        activo = self.var_navegador.get()
+        if "usar_navegador_challenge" not in self.config_global:
+            self.config_global["usar_navegador_challenge"] = CONFIG_GLOBAL_DEFAULT["usar_navegador_challenge"].copy()
+        self.config_global["usar_navegador_challenge"]["activo"] = activo
+    
+    def _verificar_soporte_navegador(self):
+        """Verifica si el soporte de navegador está disponible"""
+        try:
+            from scanner.navegador_challenge import verificar_soporte_navegador
+            
+            self.lbl_estado_nav.configure(text="Verificando...")
+            self.update()
+            
+            estado = verificar_soporte_navegador()
+            
+            if estado['disponible']:
+                self.lbl_estado_nav.configure(text="✅ Disponible", text_color="green")
+                messagebox.showinfo(
+                    "Soporte disponible",
+                    "✅ El navegador para challenges está disponible.\n\n"
+                    f"• Chrome: {estado['chrome_info']}\n"
+                    "• Dependencias Python: Instaladas"
+                )
+            else:
+                self.lbl_estado_nav.configure(text="❌ No disponible", text_color="red")
+                mensaje = "❌ El navegador para challenges NO está disponible.\n\n"
+                
+                if not estado['chrome_instalado']:
+                    mensaje += f"• Chrome: {estado['chrome_info']}\n"
+                if not estado['dependencias_ok']:
+                    mensaje += f"• Dependencias: {estado['dependencias_info']}\n"
+                
+                mensaje += "\n" + estado['instrucciones_instalacion']
+                
+                messagebox.showwarning("Soporte no disponible", mensaje)
+                
+        except ImportError:
+            self.lbl_estado_nav.configure(text="❌ Módulo no encontrado", text_color="red")
+            messagebox.showerror("Error", "No se pudo importar el módulo de navegador.")
+    
+    def _instalar_dependencias_navegador(self):
+        """Instala las dependencias necesarias para el navegador"""
+        try:
+            from scanner.navegador_challenge import NavegadorChallenge
+            
+            respuesta = messagebox.askyesno(
+                "Instalar dependencias",
+                "Se instalarán las siguientes dependencias:\n\n"
+                "• selenium\n"
+                "• undetected-chromedriver\n\n"
+                "Esto puede tardar unos minutos.\n"
+                "¿Desea continuar?"
+            )
+            
+            if not respuesta:
+                return
+            
+            self.lbl_estado_nav.configure(text="Instalando...")
+            self.btn_instalar_deps.configure(state="disabled")
+            self.update()
+            
+            def instalar():
+                exito, mensaje = NavegadorChallenge.instalar_dependencias(
+                    callback=lambda m: self.after(0, lambda: self.lbl_estado_nav.configure(text=m))
+                )
+                
+                def mostrar_resultado():
+                    self.btn_instalar_deps.configure(state="normal")
+                    if exito:
+                        self.lbl_estado_nav.configure(text="✅ Instalado", text_color="green")
+                        messagebox.showinfo("Éxito", mensaje)
+                    else:
+                        self.lbl_estado_nav.configure(text="❌ Error", text_color="red")
+                        messagebox.showerror("Error", mensaje)
+                
+                self.after(0, mostrar_resultado)
+            
+            import threading
+            threading.Thread(target=instalar, daemon=True).start()
+            
+        except ImportError:
+            messagebox.showerror("Error", "No se pudo importar el módulo de navegador.")

@@ -273,11 +273,11 @@ class DetectorWAF:
         """Genera vulnerabilidad si no se detecta WAF"""
         return Vulnerabilidad(
             nombre="Sin WAF (Web Application Firewall) detectado",
-            severidad=Severidad.MEDIA,
+            severidad=Severidad.INFO,
             descripcion="No se detectó ningún firewall de aplicación web protegiendo el sitio.",
-            explicacion_simple="Tu sitio no tiene un 'guardia de seguridad' que bloquee ataques automáticos como inyecciones SQL o XSS. Esto te hace más vulnerable.",
-            recomendacion="Instalar un WAF como Wordfence, Sucuri, o usar un CDN con WAF integrado como Cloudflare.",
-            detalles="Un WAF puede bloquear el 90% de los ataques automatizados comunes.",
+            explicacion_simple="Tu sitio no tiene un 'guardia de seguridad' que bloquee ataques automáticos. Esto es una recomendación, no necesariamente un problema si tienes otras medidas de seguridad.",
+            recomendacion="Considerar instalar un WAF como Wordfence, Sucuri, o usar un CDN con WAF integrado como Cloudflare.",
+            detalles="Un WAF puede ayudar a bloquear ataques automatizados comunes, pero no es obligatorio si el sitio está bien configurado.",
             cwe="CWE-693: Fallo en mecanismo de protección"
         )
     

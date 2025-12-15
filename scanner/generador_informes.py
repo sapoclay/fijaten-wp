@@ -177,9 +177,20 @@ class GeneradorInformes:
             if motivo:
                 texto += f"      • Motivo: {motivo}\n"
 
-        if self.info_sitio.get('plugins_detectados'):
-            texto += f"   Plugins detectados: {len(self.info_sitio['plugins_detectados'])}\n"
-            for plugin in self.info_sitio['plugins_detectados'][:10]:
+        # Mostrar plugins con versiones si están disponibles
+        plugins_con_versiones = self.info_sitio.get('plugins_con_versiones', [])
+        plugins_detectados = self.info_sitio.get('plugins_detectados', [])
+        
+        if plugins_con_versiones:
+            texto += f"   Plugins detectados: {len(plugins_con_versiones)}\n"
+            for plugin, version in plugins_con_versiones[:10]:
+                if version:
+                    texto += f"      • {plugin} v{version}\n"
+                else:
+                    texto += f"      • {plugin} (versión desconocida)\n"
+        elif plugins_detectados:
+            texto += f"   Plugins detectados: {len(plugins_detectados)}\n"
+            for plugin in plugins_detectados[:10]:
                 texto += f"      • {plugin}\n"
         
         texto += "\n-------------------------------------------------------------------\n"
