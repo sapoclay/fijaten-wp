@@ -1,6 +1,6 @@
 """
 Fijaten-WP - Detector de WAF (Web Application Firewall)
-Detecta si el sitio está protegido por un firewall de aplicación web
+Detecta si el sitio está protegido por un firewall de aplicación web para tomar medidas adecuadas
 """
 
 import requests

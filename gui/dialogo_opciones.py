@@ -591,7 +591,7 @@ class DialogoOpciones(ctk.CTkToplevel):
                 if not estado['dependencias_ok']:
                     mensaje += f"• Dependencias: {estado['dependencias_info']}\n"
                 
-                mensaje += "\n" + estado['instrucciones_instalacion']
+                mensaje += "\n" + estado.get('instrucciones', '')
                 
                 messagebox.showwarning("Soporte no disponible", mensaje)
                 

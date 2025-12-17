@@ -1,4 +1,10 @@
 __pycache__/
+*.pyc
+*.pyo
 venv/
-scanner/__pycahe__
+.venv/
+*.egg-info/
+dist/
+build/
+.eggs/
 gui/__pycahe__

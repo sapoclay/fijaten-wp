@@ -349,6 +349,8 @@ class DetectorTecnologias:
             servidor_list = ['Nginx', 'Apache', 'IIS']
             lenguaje_list = ['PHP']
             
+            
+            
             for tech in tecnologias_encontradas:
                 nombre = tech['nombre']
                 detalle = f"{tech['icono']} {nombre} (confianza: {tech['confianza']}%)"

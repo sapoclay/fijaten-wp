@@ -5,12 +5,27 @@ Usa Selenium con undetected-chromedriver para pasar verificaciones JavaScript
 
 import time
 import subprocess
-import sys
-from typing import Optional, Dict, Tuple, Any, TYPE_CHECKING
+import re
+import shutil
+from typing import Optional, Dict, Tuple, Any
 from urllib.parse import urlparse
 
-if TYPE_CHECKING:
-    from selenium.webdriver.chrome.webdriver import WebDriver
+
+# Patrones de detección de WAF/Challenge
+PATRONES_WAF = {
+    'Cloudflare': ['cloudflare', '__cf_bm', 'cf-browser-verification', '__cf_chl_'],
+    'Sucuri WAF': ['sucuri', 'sucuri-bg'],
+    'OpenResty/Nginx WAF': ['openresty'],
+    'Wordfence': ['wordfence', 'wfwaf-'],
+    'WAF genérico': ['ddos protection', 'checking your browser', 'challenge-platform'],
+}
+
+TITULOS_CHALLENGE = ['un momento', 'just a moment', 'please wait', 'checking', 'ddos']
+
+INDICADORES_CHALLENGE = [
+    'settimeout(function(){', 'window.location.reload()', 'location.reload()',
+    'please wait', 'ddos protection', 'checking your browser', 'challenge-platform',
+]
 
 
 class NavegadorChallenge:
@@ -72,18 +87,9 @@ class NavegadorChallenge:
     @classmethod
     def verificar_chrome_instalado(cls) -> Tuple[bool, str]:
         """Verifica si Chrome/Chromium está instalado"""
-        import shutil
-        
-        # Buscar Chrome en ubicaciones comunes
         rutas_chrome = [
-            'google-chrome',
-            'google-chrome-stable',
-            'chromium',
-            'chromium-browser',
-            '/usr/bin/google-chrome',
-            '/usr/bin/chromium',
-            '/usr/bin/chromium-browser',
-            '/opt/google/chrome/chrome',
+            'google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser',
+            '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser',
         ]
         
         for ruta in rutas_chrome:
@@ -93,16 +99,16 @@ class NavegadorChallenge:
         # En Windows
         import platform
         if platform.system() == 'Windows':
+            import os
             rutas_windows = [
                 r'C:\Program Files\Google\Chrome\Application\chrome.exe',
                 r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
             ]
-            import os
             for ruta in rutas_windows:
                 if os.path.exists(ruta):
                     return True, ruta
         
-        return False, "Chrome/Chromium no encontrado. Por favor, instálalo primero."
+        return False, "Chrome/Chromium no encontrado"
     
     def esta_disponible(self) -> Tuple[bool, str]:
         """Verifica si el navegador está disponible para usar"""
@@ -134,8 +140,6 @@ class NavegadorChallenge:
         
         try:
             import undetected_chromedriver as uc
-            import subprocess
-            import re
             
             options = uc.ChromeOptions()
             options.add_argument('--headless=new')
@@ -145,42 +149,31 @@ class NavegadorChallenge:
             options.add_argument('--window-size=1920,1080')
             options.add_argument('--disable-blink-features=AutomationControlled')
             
-            # Detectar versión de Chrome automáticamente
-            chrome_version = None
-            chrome_commands = [
-                'google-chrome', 
-                'google-chrome-stable',
-                'chromium',
-                'chromium-browser',
-                '/usr/bin/google-chrome',
-                '/usr/bin/chromium'
-            ]
-            
-            for cmd in chrome_commands:
-                try:
-                    result = subprocess.run([cmd, '--version'], capture_output=True, text=True, timeout=5)
-                    if result.returncode == 0:
-                        version_str = result.stdout.strip()
-                        # Ejemplo: "Google Chrome 142.0.7444.175" o "Chromium 142.0.7444.175"
-                        match = re.search(r'(\d+)\.', version_str)
-                        if match:
-                            chrome_version = int(match.group(1))
-                            break
-                except Exception:
-                    continue
-            
-            if chrome_version is None:
-                # Intentar con valor por defecto alto
-                chrome_version = 142
+            # Detectar versión de Chrome
+            chrome_version = self._obtener_version_chrome()
             
             self.driver = uc.Chrome(options=options, version_main=chrome_version)
             self.driver.set_page_load_timeout(self.timeout)
-            
             return True
             
         except Exception as e:
             self._error_instalacion = str(e)
             return False
+    
+    def _obtener_version_chrome(self) -> int:
+        """Obtiene la versión principal de Chrome instalada"""
+        comandos = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']
+        
+        for cmd in comandos:
+            try:
+                result = subprocess.run([cmd, '--version'], capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    match = re.search(r'(\d+)\.', result.stdout)
+                    if match:
+                        return int(match.group(1))
+            except Exception:
+                continue
+        return 142  # Valor por defecto
     
     def cerrar(self):
         """Cierra el navegador"""
@@ -191,32 +184,40 @@ class NavegadorChallenge:
                 pass
             self.driver = None
     
-    def _detectar_tipo_challenge(self, html: str, titulo: str) -> str:
-        """Detecta el tipo de challenge para dar información más específica"""
+    def _detectar_tipo_waf(self, html: str, titulo: str) -> str:
+        """Detecta el tipo de WAF/challenge basándose en patrones conocidos"""
         html_lower = html.lower()
         titulo_lower = titulo.lower()
         
-        # Cloudflare
-        if 'cloudflare' in html_lower or '__cf_bm' in html_lower:
-            return 'Cloudflare'
+        # Buscar en patrones definidos
+        for nombre_waf, patrones in PATRONES_WAF.items():
+            if any(p in html_lower for p in patrones):
+                return nombre_waf
         
-        # Sucuri
-        if 'sucuri' in html_lower:
-            return 'Sucuri WAF'
-        
-        # OpenResty / Nginx WAF
-        if 'openresty' in html_lower or ('un momento' in titulo_lower and 'location.reload' in html_lower):
+        # Caso especial: OpenResty con título en español
+        if 'un momento' in titulo_lower and 'reload' in html_lower:
             return 'OpenResty/Nginx WAF'
         
-        # Wordfence
-        if 'wordfence' in html_lower:
-            return 'Wordfence'
-        
-        # Genérico
-        if any(x in html_lower for x in ['just a moment', 'checking your browser', 'ddos protection']):
-            return 'WAF genérico'
-        
         return 'Desconocido'
+    
+    def _es_pagina_challenge(self, html: str, titulo: str) -> bool:
+        """Verifica si el contenido es una página de challenge"""
+        html_lower = html.lower()
+        titulo_lower = titulo.lower()
+        
+        # Título indica challenge
+        if any(t in titulo_lower for t in TITULOS_CHALLENGE):
+            return True
+        
+        # Múltiples indicadores de challenge en HTML
+        if sum(1 for ind in INDICADORES_CHALLENGE if ind.lower() in html_lower) >= 2:
+            return True
+        
+        # HTML muy corto con reload
+        if len(html) < 2000 and 'reload' in html_lower:
+            return True
+        
+        return False
     
     def pasar_challenge(self, url: str, max_intentos: int = 5, 
                         espera_challenge: int = 15) -> Tuple[bool, Dict]:
@@ -239,94 +240,39 @@ class NavegadorChallenge:
         }
         
         try:
-            # Asegurar que el driver está inicializado
-            assert self.driver is not None, "Driver no inicializado"
-            
+            assert self.driver is not None
             self.driver.get(url)
             
-            # Verificar título inicial
             titulo_inicial = self.driver.title
             html_inicial = self.driver.page_source
+            resultado['tipo_waf'] = self._detectar_tipo_waf(html_inicial, titulo_inicial)
             
-            resultado['tipo_waf'] = self._detectar_tipo_challenge(html_inicial, titulo_inicial)
-            
-            # Indicadores de que seguimos en el challenge (deben estar en el HTML)
-            indicadores_challenge = [
-                'setTimeout(function(){',
-                'window.location.reload()',
-                'location.reload()',
-                'Please wait',
-                'DDoS protection',
-                'Checking your browser',
-                'challenge-platform',
-            ]
-            
-            # Indicadores de título de challenge
-            titulos_challenge = [
-                'un momento',
-                'just a moment',
-                'please wait',
-                'checking',
-                'ddos',
-            ]
-            
-            def _es_challenge(html_content: str, titulo_content: str) -> bool:
-                """Verifica si estamos en una página de challenge"""
-                html_lower = html_content.lower()
-                titulo_lower = titulo_content.lower()
-                
-                # Si el título indica challenge
-                if any(t in titulo_lower for t in titulos_challenge):
-                    return True
-                
-                # Si hay indicadores de challenge en el HTML
-                indicadores_encontrados = sum(1 for ind in indicadores_challenge if ind.lower() in html_lower)
-                if indicadores_encontrados >= 2:
-                    return True
-                
-                # HTML muy corto probablemente es challenge
-                if len(html_content) < 2000 and 'reload' in html_lower:
-                    return True
-                
-                return False
-            
-            # Verificar si el contenido inicial ya es válido (no es challenge)
-            if not _es_challenge(html_inicial, titulo_inicial):
-                # Ya pasamos el challenge o no había challenge
+            # Verificar si el contenido inicial ya es válido
+            if not self._es_pagina_challenge(html_inicial, titulo_inicial):
                 resultado['html'] = html_inicial
-                resultado['url_final'] = self.driver.current_url  # type: ignore[union-attr]
+                resultado['url_final'] = self.driver.current_url
                 resultado['tipo_waf'] = 'Ninguno'
-                
-                for cookie in self.driver.get_cookies():  # type: ignore[union-attr]
+                for cookie in self.driver.get_cookies():
                     resultado['cookies'][cookie['name']] = cookie['value']
-                
                 return True, resultado
             
-            # Variable para guardar el HTML
-            html = html_inicial
-            
             # Intentar esperar a que se resuelva el challenge
+            html = html_inicial
             for intento in range(max_intentos):
-                # Esperar menos tiempo en los primeros intentos
                 wait_time = 5 if intento < 2 else espera_challenge
                 time.sleep(wait_time)
                 
-                # Verificar si pasamos el challenge
-                html = self.driver.page_source  # type: ignore[union-attr]
-                titulo = self.driver.title  # type: ignore[union-attr]
+                html = self.driver.page_source
+                titulo = self.driver.title
                 
-                if not _es_challenge(html, titulo) and len(html) > 2000:
-                    # Parece que pasamos el challenge
+                if not self._es_pagina_challenge(html, titulo) and len(html) > 2000:
                     resultado['html'] = html
-                    resultado['url_final'] = self.driver.current_url  # type: ignore[union-attr]
-                    
-                    # Obtener cookies
-                    for cookie in self.driver.get_cookies():  # type: ignore[union-attr]
+                    resultado['url_final'] = self.driver.current_url
+                    for cookie in self.driver.get_cookies():
                         resultado['cookies'][cookie['name']] = cookie['value']
-                    
                     return True, resultado
             
-            # Si llegamos aquí, no pudimos pasar el challenge
+            # No pudimos pasar el challenge
             error_msg = (
                 f'No se pudo pasar el challenge de {resultado["tipo_waf"]}. '
                 f'Este tipo de protección es muy agresiva y puede requerir '
@@ -391,9 +337,14 @@ class NavegadorChallenge:
 def verificar_soporte_navegador() -> Dict:
     """Verifica el estado del soporte de navegador para challenges"""
     nav = NavegadorChallenge()
-    
     chrome_ok, chrome_msg = nav.verificar_chrome_instalado()
     deps_ok, deps_msg = nav.verificar_dependencias()
+    
+    instrucciones = []
+    if not chrome_ok:
+        instrucciones.append("• Instalar Chrome/Chromium: sudo apt install chromium-browser")
+    if not deps_ok:
+        instrucciones.append("• Instalar dependencias: pip install selenium undetected-chromedriver")
     
     return {
         'chrome_instalado': chrome_ok,
@@ -401,44 +352,5 @@ def verificar_soporte_navegador() -> Dict:
         'dependencias_ok': deps_ok,
         'dependencias_info': deps_msg,
         'disponible': chrome_ok and deps_ok,
-        'instrucciones_instalacion': _generar_instrucciones_instalacion(chrome_ok, deps_ok)
+        'instrucciones': "\n".join(instrucciones) if instrucciones else "✅ Todo instalado"
     }
-
-
-def _generar_instrucciones_instalacion(chrome_ok: bool, deps_ok: bool) -> str:
-    """Genera instrucciones de instalación según lo que falte"""
-    instrucciones = []
-    
-    if not chrome_ok:
-        instrucciones.append("""
-📦 INSTALAR CHROME/CHROMIUM:
-
-Ubuntu/Debian:
-  sudo apt update
-  sudo apt install chromium-browser
-
-Fedora:
-  sudo dnf install chromium
-
-Arch Linux:
-  sudo pacman -S chromium
-
-Windows:
-  Descargar desde https://www.google.com/chrome/
-""")
-    
-    if not deps_ok:
-        instrucciones.append("""
-📦 INSTALAR DEPENDENCIAS PYTHON:
-
-Ejecuta en el terminal:
-  pip install selenium undetected-chromedriver
-
-O desde Fijaten-WP, usa el botón "Instalar soporte Challenge"
-en las opciones de escaneo.
-""")
-    
-    if not instrucciones:
-        return "✅ Todo está instalado correctamente."
-    
-    return "\n".join(instrucciones)

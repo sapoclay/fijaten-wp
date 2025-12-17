@@ -10,6 +10,7 @@ from typing import Dict, Optional, List
 from .modelos import Vulnerabilidad, Severidad, InfoDNS, InfoWHOIS
 
 class AnalizadorDNS:
+    
     """Analiza la configuración DNS y WHOIS de un dominio"""
     
     def __init__(self, session: requests.Session, timeout: int = 10):

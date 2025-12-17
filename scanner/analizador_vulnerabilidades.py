@@ -495,6 +495,7 @@ class AnalizadorWordPress:
             info['error'] = "Módulo de navegador no disponible"
             self._registrar_mensaje(f"⚠️ {info['error']}")
             return None, info
+        
         except Exception as e:
             info['error'] = str(e)
             self._registrar_mensaje(f"⚠️ Error con navegador: {info['error']}")
@@ -2120,19 +2121,15 @@ class AnalizadorWordPress:
                     self.vulnerabilidades.append(vuln)
                 self.info_sitio['cve_plugins_analizados'] = len(plugins_simples)
             
-            # Verificar tema
+            # Verificar tema usando generar_vulnerabilidades para consistencia
             if tema:
-                resultado_tema = self.verificador_cve.verificar_tema(tema, self.info_sitio.get('tema_version'))
-                if resultado_tema and resultado_tema.get('tiene_vulnerabilidades'):
-                    self.vulnerabilidades.append(Vulnerabilidad(
-                        nombre=f"Vulnerabilidades conocidas en tema '{tema}'",
-                        severidad=Severidad.ALTA,
-                        descripcion=f"El tema {tema} tiene vulnerabilidades conocidas.",
-                        explicacion_simple="El tema que usas tiene fallos de seguridad conocidos que los atacantes podrían explotar.",
-                        recomendacion="Actualizar el tema a la última versión o buscar una alternativa más segura.",
-                        detalles=str(resultado_tema.get('detalles', '')),
-                        cwe="CWE-1104: Uso de componentes de terceros sin mantenimiento"
-                    ))
+                tema_version = self.info_sitio.get('tema_version')
+                vulns_tema = self.verificador_cve.generar_vulnerabilidades(
+                    [], 
+                    tema_activo=(tema, tema_version)
+                )
+                for vuln in vulns_tema:
+                    self.vulnerabilidades.append(vuln)
                 self.info_sitio['cve_tema_analizado'] = tema
         except Exception as e:
             self._registrar_mensaje(f"⚠️ Error consultando CVE: {str(e)}")
