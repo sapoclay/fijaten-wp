@@ -5,6 +5,7 @@ Módulo para generar informes de vulnerabilidades
 from typing import List, Dict
 from datetime import datetime
 from .analizador_vulnerabilidades import Vulnerabilidad, Severidad
+from .verificador_cve import VerificadorCVE
 
 class GeneradorInformes:
     """Generador de informes de seguridad para WordPress"""
@@ -199,14 +200,28 @@ class GeneradorInformes:
         texto += "\n📋 VULNERABILIDADES DETECTADAS\n"
         texto += "-------------------------------------------------------------------\n"
         
+        # Crear instancia del verificador para generar enlaces CWE
+        verificador = VerificadorCVE()
+        
         for vuln in self.vulnerabilidades:
-            cwe_info = f"\n  CWE: {vuln.cwe}" if vuln.cwe else ""
+            cwe_info = ""
+            enlaces_cwe = ""
+            if vuln.cwe:
+                cwe_info = f"\n  CWE: {vuln.cwe}"
+                # Generar enlaces para cada CWE encontrado
+                enlaces = verificador.generar_enlaces_cwe(vuln.cwe)
+                if enlaces:
+                    enlaces_cwe = "\n  📎 ENLACES CWE:"
+                    for enlace in enlaces:
+                        enlaces_cwe += f"\n      • {enlace['cwe_id']} (MITRE): {enlace['mitre']}"
+                        enlaces_cwe += f"\n      • {enlace['cwe_id']} (NVD): {enlace['nvd']}"
+            
             texto += f"""
 -------------------------------------------------------------------
   [{vuln.severidad.value}] {vuln.nombre}
 -------------------------------------------------------------------
   Descripcion: {vuln.descripcion}
-  Detalles tecnicos: {vuln.detalles if vuln.detalles else 'N/A'}{cwe_info}
+  Detalles tecnicos: {vuln.detalles if vuln.detalles else 'N/A'}{cwe_info}{enlaces_cwe}
   Recomendacion: {vuln.recomendacion}
 
 """

@@ -21,6 +21,10 @@ class VerificadorCVE:
     URL_WPSCAN = "https://wpscan.com/?s="
     URL_PATCHSTACK = "https://patchstack.com/database/?s="
     URL_EXPLOIT_DB = "https://www.exploit-db.com/search?q="
+    
+    # URLs oficiales para consultar CWE
+    URL_CWE_MITRE = "https://cwe.mitre.org/data/definitions/"
+    URL_CWE_NVD = "https://nvd.nist.gov/vuln/search#/nvd/home"
 
     NVD_API_HEADERS = {
         'User-Agent': 'Fijaten-WP Security Scanner/1.0'
@@ -146,7 +150,7 @@ class VerificadorCVE:
         },
     }
     
-    def __init__(self, session: requests.Session, timeout: int = 10):
+    def __init__(self, session: Optional[requests.Session] = None, timeout: int = 10):
         self.session = session
         self.timeout = timeout
     
@@ -158,6 +162,27 @@ class VerificadorCVE:
             'mitre': f"{self.URL_MITRE}{cve_id}",
             'cve_id': cve_id
         }
+    
+    def generar_enlaces_cwe(self, cwe_str: str) -> List[Dict[str, str]]:
+        """
+        Genera enlaces a páginas oficiales para CWEs encontrados en un string.
+        Soporta múltiples CWEs separados por / o ,
+        Ejemplo: "CWE-200 / CWE-425" -> enlaces para ambos
+        """
+        enlaces = []
+        # Extraer todos los CWE-XXX del string
+        cwe_pattern = re.compile(r'CWE-?(\d+)', re.IGNORECASE)
+        matches = cwe_pattern.findall(cwe_str)
+        
+        for cwe_num in matches:
+            cwe_id = f"CWE-{cwe_num}"
+            enlaces.append({
+                'cwe_id': cwe_id,
+                'mitre': f"{self.URL_CWE_MITRE}{cwe_num}.html",
+                'nvd': f"{self.URL_CWE_NVD}?keyword=%22{cwe_id}%22&resultType=records"
+            })
+        
+        return enlaces
     
     def generar_enlace_cpe(self, cpe: Optional[str], nombre_producto: str = "") -> Dict[str, str]:
         """Genera enlaces útiles para buscar vulnerabilidades de un producto"""
@@ -174,7 +199,7 @@ class VerificadorCVE:
             enlaces['patchstack'] = f"{self.URL_PATCHSTACK}{nombre_producto}"
             
             # Enlace a búsqueda en NVD por nombre del producto (con comillas para búsqueda exacta)
-            enlaces['nvd_search'] = f"{self.URL_NVD_SEARCH}?keyword=%22{nombre_producto}%22&resultType={nombre_producto}"
+            enlaces['nvd_search'] = f"{self.URL_NVD_SEARCH}?keyword=%22{nombre_producto}%22&resultType=records"
             
             # Enlace a Exploit-DB
             enlaces['exploit_db'] = f"{self.URL_EXPLOIT_DB}wordpress+{nombre_busqueda}"
@@ -195,6 +220,9 @@ class VerificadorCVE:
         Consulta la API pública de NVD para obtener información detallada de un CVE
         Nota: La API pública tiene límite de peticiones (5 por cada 30 segundos sin API key)
         """
+        if not self.session:
+            return None
+        
         try:
             url = f"{self.URL_NVD_API}?cveId={cve_id}"
 
@@ -384,6 +412,9 @@ class VerificadorCVE:
         
         # Con API key, consultar WPScan
         headers = {'Authorization': f'Token token={api_key}'}
+        
+        if not self.session:
+            return vulnerabilidades
         
         for nombre, version in plugins:
             try:
