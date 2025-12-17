@@ -397,33 +397,48 @@ class AnalizadorWordPress:
             return False
         
         contenido = response.text.lower()
+        html_len = len(response.text)
         
-        # Patrones típicos de páginas challenge
+        # Las páginas de challenge son típicamente muy cortas (< 5KB)
+        # Una página WordPress real suele tener > 20KB
+        if html_len > 15000:
+            return False
+        
+        # Patrones fuertes que indican challenge (uno solo es suficiente)
+        patrones_fuertes = [
+            'cf-browser-verification',
+            'challenge-form',
+            'challenge-platform',
+            'ddos protection by',
+            '__cf_chl_',
+            'sucuri-bg',
+        ]
+        
+        if any(p in contenido for p in patrones_fuertes):
+            return True
+        
+        # Patrones típicos de páginas challenge (necesitan combinación)
         patrones_challenge = [
             'un momento',
             'please wait',
             'checking your browser',
             'just a moment',
             'ddos protection',
-            'cloudflare',
-            'setTimeout(function(){',
             'window.location.reload()',
-            'challenge-form',
-            'cf-browser-verification',
             'access denied',
-            'forbidden',
+            'enable javascript',
         ]
         
-        # Si tiene script de recarga automática y título genérico, es challenge
-        tiene_reload = 'location.reload()' in contenido or 'settimeout' in contenido
-        titulo_generico = any(p in contenido for p in ['un momento', 'please wait', 'checking', 'loading'])
-        
-        if tiene_reload and titulo_generico:
+        # Si contiene múltiples patrones Y la página es corta
+        coincidencias = sum(1 for p in patrones_challenge if p in contenido)
+        if coincidencias >= 2 and html_len < 10000:
             return True
         
-        # Si contiene múltiples patrones de challenge
-        coincidencias = sum(1 for p in patrones_challenge if p in contenido)
-        if coincidencias >= 2:
+        # Patrón específico: reload automático con título de espera
+        tiene_reload_auto = 'location.reload()' in contenido and 'settimeout' in contenido
+        tiene_titulo_challenge = any(t in contenido for t in ['<title>un momento', '<title>please wait', '<title>just a moment'])
+        
+        if tiene_reload_auto and tiene_titulo_challenge:
             return True
         
         return False

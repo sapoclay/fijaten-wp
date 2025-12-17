@@ -134,6 +134,8 @@ class NavegadorChallenge:
         
         try:
             import undetected_chromedriver as uc
+            import subprocess
+            import re
             
             options = uc.ChromeOptions()
             options.add_argument('--headless=new')
@@ -144,22 +146,32 @@ class NavegadorChallenge:
             options.add_argument('--disable-blink-features=AutomationControlled')
             
             # Detectar versión de Chrome automáticamente
-            try:
-                import subprocess
-                result = subprocess.run(['google-chrome', '--version'], capture_output=True, text=True)
-                if result.returncode == 0:
-                    version_str = result.stdout.strip()
-                    # Ejemplo: "Google Chrome 142.0.7444.175"
-                    import re
-                    match = re.search(r'(\d+)\.', version_str)
-                    if match:
-                        chrome_version = int(match.group(1))
-                    else:
-                        chrome_version = None
-                else:
-                    chrome_version = None
-            except Exception:
-                chrome_version = None
+            chrome_version = None
+            chrome_commands = [
+                'google-chrome', 
+                'google-chrome-stable',
+                'chromium',
+                'chromium-browser',
+                '/usr/bin/google-chrome',
+                '/usr/bin/chromium'
+            ]
+            
+            for cmd in chrome_commands:
+                try:
+                    result = subprocess.run([cmd, '--version'], capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0:
+                        version_str = result.stdout.strip()
+                        # Ejemplo: "Google Chrome 142.0.7444.175" o "Chromium 142.0.7444.175"
+                        match = re.search(r'(\d+)\.', version_str)
+                        if match:
+                            chrome_version = int(match.group(1))
+                            break
+                except Exception:
+                    continue
+            
+            if chrome_version is None:
+                # Intentar con valor por defecto alto
+                chrome_version = 142
             
             self.driver = uc.Chrome(options=options, version_main=chrome_version)
             self.driver.set_page_load_timeout(self.timeout)
@@ -238,34 +250,72 @@ class NavegadorChallenge:
             
             resultado['tipo_waf'] = self._detectar_tipo_challenge(html_inicial, titulo_inicial)
             
-            # Indicadores de que seguimos en el challenge
+            # Indicadores de que seguimos en el challenge (deben estar en el HTML)
             indicadores_challenge = [
                 'setTimeout(function(){',
                 'window.location.reload()',
-                'Un momento',
-                'Just a moment',
-                'Checking your browser',
+                'location.reload()',
                 'Please wait',
                 'DDoS protection',
+                'Checking your browser',
+                'challenge-platform',
             ]
+            
+            # Indicadores de título de challenge
+            titulos_challenge = [
+                'un momento',
+                'just a moment',
+                'please wait',
+                'checking',
+                'ddos',
+            ]
+            
+            def _es_challenge(html_content: str, titulo_content: str) -> bool:
+                """Verifica si estamos en una página de challenge"""
+                html_lower = html_content.lower()
+                titulo_lower = titulo_content.lower()
+                
+                # Si el título indica challenge
+                if any(t in titulo_lower for t in titulos_challenge):
+                    return True
+                
+                # Si hay indicadores de challenge en el HTML
+                indicadores_encontrados = sum(1 for ind in indicadores_challenge if ind.lower() in html_lower)
+                if indicadores_encontrados >= 2:
+                    return True
+                
+                # HTML muy corto probablemente es challenge
+                if len(html_content) < 2000 and 'reload' in html_lower:
+                    return True
+                
+                return False
+            
+            # Verificar si el contenido inicial ya es válido (no es challenge)
+            if not _es_challenge(html_inicial, titulo_inicial):
+                # Ya pasamos el challenge o no había challenge
+                resultado['html'] = html_inicial
+                resultado['url_final'] = self.driver.current_url  # type: ignore[union-attr]
+                resultado['tipo_waf'] = 'Ninguno'
+                
+                for cookie in self.driver.get_cookies():  # type: ignore[union-attr]
+                    resultado['cookies'][cookie['name']] = cookie['value']
+                
+                return True, resultado
             
             # Variable para guardar el HTML
             html = html_inicial
             
             # Intentar esperar a que se resuelva el challenge
             for intento in range(max_intentos):
-                time.sleep(espera_challenge)
+                # Esperar menos tiempo en los primeros intentos
+                wait_time = 5 if intento < 2 else espera_challenge
+                time.sleep(wait_time)
                 
                 # Verificar si pasamos el challenge
                 html = self.driver.page_source  # type: ignore[union-attr]
                 titulo = self.driver.title  # type: ignore[union-attr]
                 
-                sigue_en_challenge = (
-                    any(ind in html for ind in indicadores_challenge) or
-                    titulo_inicial.lower() == titulo.lower()  # Título no cambió
-                )
-                
-                if not sigue_en_challenge and len(html) > 1000:
+                if not _es_challenge(html, titulo) and len(html) > 2000:
                     # Parece que pasamos el challenge
                     resultado['html'] = html
                     resultado['url_final'] = self.driver.current_url  # type: ignore[union-attr]

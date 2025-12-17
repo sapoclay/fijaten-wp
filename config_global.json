@@ -1,0 +1,7 @@
+{
+  "usar_navegador_challenge": {
+    "nombre": "Usar navegador para challenges",
+    "descripcion": "Usa Chrome/Selenium para pasar protecciones WAF/challenge (requiere Chrome instalado)",
+    "activo": true
+  }
+}

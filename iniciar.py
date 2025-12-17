@@ -68,7 +68,7 @@ def print_banner():
 {Colors.CYAN}{Colors.BOLD}
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║
-║   🔒  {APP_NAME} - Analizador de Seguridad WordPress  🔒         ║
+║   🔒  {APP_NAME} - Analizador de seguridad WordPress  🔒         ║
 ║                                                                  ║
 ║   Versión: {APP_VERSION}                                         ║
 ║   https://github.com/sapoclay/fijaten-wp                         ║
