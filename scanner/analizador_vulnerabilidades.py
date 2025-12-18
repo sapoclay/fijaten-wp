@@ -47,6 +47,9 @@ class AnalizadorWordPress:
         })
         self.timeout = 10
         self._navegador = None  # Navegador para challenges
+        
+        # Cache de versiones extraídas desde URLs de recursos (CSS/JS)
+        self._versiones_desde_recursos: Dict[str, str] = {}
 
         # Cache para baseline de soft-404 por modo de redirects
         self._baseline_404: Dict[bool, Optional[Dict]] = {False: None, True: None}
@@ -275,6 +278,111 @@ class AnalizadorWordPress:
             return True
 
         return False
+
+    def _extraer_version_plugin(self, plugin: str) -> Optional[str]:
+        """
+        Extrae la versión de un plugin usando múltiples métodos:
+        0. Cache de versiones extraídas de URLs (CSS/JS con ?ver=X.X.X)
+        1. readme.txt (Stable tag)
+        2. Archivo PHP principal (Version header)
+        3. package.json
+        4. changelog.txt
+        5. Comentarios en archivos CSS/JS
+        """
+        version = None
+        
+        # Método 0: Verificar si ya tenemos la versión de URLs CSS/JS
+        if hasattr(self, '_versiones_desde_recursos') and plugin in self._versiones_desde_recursos:
+            version_extraida = self._versiones_desde_recursos[plugin]
+            self._registrar_mensaje(f"   📦 Versión de {plugin} extraída de URL: {version_extraida}")
+            return version_extraida
+        
+        # Método 1: readme.txt - Stable tag (más común)
+        response = self._realizar_peticion(
+            f"{self.dominio}/wp-content/plugins/{plugin}/readme.txt",
+            allow_redirects=False
+        )
+        if response and response.status_code == 200:
+            texto = response.text or ''
+            # Buscar "Stable tag: X.X.X"
+            match = re.search(r'Stable tag:\s*([\d.]+)', texto, re.IGNORECASE)
+            if match:
+                return match.group(1)
+            # Buscar "Version: X.X.X" (algunos readmes lo usan)
+            match = re.search(r'^Version:\s*([\d.]+)', texto, re.MULTILINE | re.IGNORECASE)
+            if match:
+                return match.group(1)
+        
+        # Método 2: Archivo PHP principal del plugin
+        # Mapeo de plugins conocidos a sus archivos principales
+        archivos_principales = {
+            'akismet': 'akismet.php',
+            'contact-form-7': 'wp-contact-form-7.php',
+            'woocommerce': 'woocommerce.php',
+            'jetpack': 'jetpack.php',
+            'elementor': 'elementor.php',
+            'wordfence': 'wordfence.php',
+            'yoast-seo': 'wp-seo.php',
+            'wordpress-seo': 'wp-seo.php',
+            'all-in-one-seo-pack': 'all_in_one_seo_pack.php',
+            'w3-total-cache': 'w3-total-cache.php',
+            'wp-super-cache': 'wp-cache.php',
+            'really-simple-ssl': 'rlrsssl-really-simple-ssl.php',
+            'updraftplus': 'updraftplus.php',
+            'duplicator': 'duplicator.php',
+            'wpforms-lite': 'wpforms.php',
+            'classic-editor': 'classic-editor.php',
+            'tinymce-advanced': 'tinymce-advanced.php',
+            'regenerate-thumbnails': 'regenerate-thumbnails.php',
+        }
+        
+        archivo_php = archivos_principales.get(plugin, f"{plugin}.php")
+        resp_php = self._realizar_peticion(
+            f"{self.dominio}/wp-content/plugins/{plugin}/{archivo_php}",
+            allow_redirects=False
+        )
+        if resp_php and resp_php.status_code == 200:
+            texto = resp_php.text or ''
+            # Buscar "Version: X.X.X" en cabecera del plugin
+            match = re.search(r'\*\s*Version:\s*([\d.]+)', texto)
+            if match:
+                return match.group(1)
+            # Alternativa sin asterisco
+            match = re.search(r'Version:\s*([\d.]+)', texto)
+            if match:
+                return match.group(1)
+        
+        # Método 3: package.json (plugins modernos)
+        resp_pkg = self._realizar_peticion(
+            f"{self.dominio}/wp-content/plugins/{plugin}/package.json",
+            allow_redirects=False
+        )
+        if resp_pkg and resp_pkg.status_code == 200:
+            import json
+            try:
+                data = json.loads(resp_pkg.text or '{}')
+                if 'version' in data:
+                    return data['version']
+            except (json.JSONDecodeError, ValueError):
+                pass
+        
+        # Método 4: changelog.txt o CHANGELOG.md
+        for changelog_file in ['changelog.txt', 'CHANGELOG.md', 'CHANGELOG.txt']:
+            resp_log = self._realizar_peticion(
+                f"{self.dominio}/wp-content/plugins/{plugin}/{changelog_file}",
+                allow_redirects=False
+            )
+            if resp_log and resp_log.status_code == 200:
+                texto = resp_log.text or ''
+                # Buscar patrones como "= 1.2.3 =" o "## 1.2.3" o "Version 1.2.3"
+                match = re.search(r'(?:^=\s*|##\s*|Version\s+)([\d.]+)', texto, re.MULTILINE)
+                if match:
+                    return match.group(1)
+        
+        # Método 5: Buscar versión en archivos CSS/JS cargados
+        # (esto ya se hace parcialmente en el análisis de la página principal)
+        
+        return version
 
     def verificar_instalador_wordpress_expuesto(self):
         """Detecta si el instalador/setup de WordPress está accesible"""
@@ -927,12 +1035,39 @@ class AnalizadorWordPress:
         self._registrar_mensaje("🔌 Analizando plugins instalados...")
         
         plugins_detectados = []
+        plugins_con_version_url: Dict[str, str] = {}  # plugin -> versión extraída de URL
         
         response = self._realizar_peticion(self.dominio)
         if response:
+            texto = response.text or ''
+            
             # Buscar plugins en el código fuente
-            plugin_matches = re.findall(r'/wp-content/plugins/([^/\'"]+)', response.text)
+            plugin_matches = re.findall(r'/wp-content/plugins/([^/\'"]+)', texto)
             plugins_detectados.extend(set(plugin_matches))
+            
+            # Extraer versiones de URLs de recursos (CSS/JS con ?ver=X.X.X)
+            # Patrón: /wp-content/plugins/nombre-plugin/...?ver=1.2.3
+            version_matches = re.findall(
+                r'/wp-content/plugins/([^/\'"]+)/[^\'"]*\?[^\'"]*ver=([\d.]+)',
+                texto
+            )
+            for plugin_name, version in version_matches:
+                if plugin_name not in plugins_con_version_url:
+                    plugins_con_version_url[plugin_name] = version
+            
+            # También buscar en atributos data-version o similares
+            data_version_matches = re.findall(
+                r'/wp-content/plugins/([^/\'"]+)[^\'"]*[\'"].*?(?:data-version|version)[\'"]?\s*[:=]\s*[\'"]?([\d.]+)',
+                texto, re.IGNORECASE
+            )
+            for plugin_name, version in data_version_matches:
+                if plugin_name not in plugins_con_version_url:
+                    plugins_con_version_url[plugin_name] = version
+        
+        # Guardar versiones detectadas desde URLs para usarlas después
+        self.info_sitio['_plugins_version_url'] = plugins_con_version_url
+        # También guardar en el diccionario de instancia para acceso rápido
+        self._versiones_desde_recursos.update(plugins_con_version_url)
         
         # Si el baseline soft-404 parece una página de challenge/WAF, el probing por rutas
         # devolverá HTML genérico con 200 y no es fiable.
@@ -999,29 +1134,21 @@ class AnalizadorWordPress:
                             plugins_detectados.append(plugin)
                             break
         
-        # Extraer versiones de los plugins detectados consultando readme.txt
+        # Extraer versiones de los plugins detectados usando múltiples métodos
         plugins_unicos = list(set(plugins_detectados))
         plugins_con_info: List[Tuple[str, Optional[str]]] = []  # Lista de (nombre, versión)
         plugins_version_expuesta = []
         
         if not enumeracion_bloqueada:
-            for plugin in plugins_unicos[:15]:  # Limitar a 15 para no tardar mucho
-                version = None
-                response = self._realizar_peticion(
-                    f"{self.dominio}/wp-content/plugins/{plugin}/readme.txt",
-                    allow_redirects=False
-                )
-                if response and self._parece_readme_plugin(response, plugin, allow_redirects=False):
-                    version_match = re.search(r'Stable tag:\s*([\d.]+)', response.text or '')
-                    if version_match:
-                        version = version_match.group(1)
-                        plugins_version_expuesta.append(f"{plugin} v{version}")
-                
+            for plugin in plugins_unicos[:20]:  # Aumentado a 20 plugins
+                version = self._extraer_version_plugin(plugin)
+                if version:
+                    plugins_version_expuesta.append(f"{plugin} v{version}")
                 plugins_con_info.append((plugin, version))
             
             # Añadir plugins que no pudimos verificar (sin versión)
             plugins_verificados = {p[0] for p in plugins_con_info}
-            for plugin in plugins_unicos[15:]:
+            for plugin in plugins_unicos[20:]:
                 if plugin not in plugins_verificados:
                     plugins_con_info.append((plugin, None))
         else:

@@ -200,28 +200,33 @@ class GeneradorInformes:
         texto += "\n📋 VULNERABILIDADES DETECTADAS\n"
         texto += "-------------------------------------------------------------------\n"
         
-        # Crear instancia del verificador para generar enlaces CWE
+        # Crear instancia del verificador para generar enlaces
         verificador = VerificadorCVE()
         
         for vuln in self.vulnerabilidades:
-            cwe_info = ""
-            enlaces_cwe = ""
-            if vuln.cwe:
-                cwe_info = f"\n  CWE: {vuln.cwe}"
-                # Generar enlaces para cada CWE encontrado
-                enlaces = verificador.generar_enlaces_cwe(vuln.cwe)
+            cwe_info = f"\n  CWE: {vuln.cwe}" if vuln.cwe else ""
+            
+            # Generar enlaces CPE si hay componente definido
+            enlaces_cpe = ""
+            if vuln.componente:
+                enlaces = verificador.generar_enlace_cpe(None, vuln.componente)
                 if enlaces:
-                    enlaces_cwe = "\n  📎 ENLACES CWE:"
-                    for enlace in enlaces:
-                        enlaces_cwe += f"\n      • {enlace['cwe_id']} (MITRE): {enlace['mitre']}"
-                        enlaces_cwe += f"\n      • {enlace['cwe_id']} (NVD): {enlace['nvd']}"
+                    enlaces_cpe = "\n  🔍 BUSCAR MÁS INFORMACIÓN:"
+                    if 'wpscan' in enlaces:
+                        enlaces_cpe += f"\n      • WPScan: {enlaces['wpscan']}"
+                    if 'patchstack' in enlaces:
+                        enlaces_cpe += f"\n      • Patchstack: {enlaces['patchstack']}"
+                    if 'nvd_search' in enlaces:
+                        enlaces_cpe += f"\n      • NVD: {enlaces['nvd_search']}"
+                    if 'exploit_db' in enlaces:
+                        enlaces_cpe += f"\n      • Exploit-DB: {enlaces['exploit_db']}"
             
             texto += f"""
 -------------------------------------------------------------------
   [{vuln.severidad.value}] {vuln.nombre}
 -------------------------------------------------------------------
   Descripcion: {vuln.descripcion}
-  Detalles tecnicos: {vuln.detalles if vuln.detalles else 'N/A'}{cwe_info}{enlaces_cwe}
+  Detalles tecnicos: {vuln.detalles if vuln.detalles else 'N/A'}{cwe_info}{enlaces_cpe}
   Recomendacion: {vuln.recomendacion}
 
 """
@@ -312,7 +317,7 @@ Este análisis es una evaluación automatizada y no garantiza la
 detección de todas las vulnerabilidades. Se recomienda complementar
 con auditorías de seguridad profesionales para sitios críticos.
 
-💡 CONSEJOS GENERALES DE SEGURIDAD:
+git adCONSEJOS GENERALES DE SEGURIDAD:
 • Mantén WordPress, temas y plugins siempre actualizados
 • Usa contraseñas fuertes y únicas
 • Implementa autenticación de dos factores

@@ -27,6 +27,7 @@ class Vulnerabilidad:
     recomendacion: str
     detalles: str = ""
     cwe: str = ""  # Identificador CWE (Common Weakness Enumeration)
+    componente: str = ""  # Nombre del plugin/tema/componente afectado (para enlaces CPE)
 
 
 @dataclass

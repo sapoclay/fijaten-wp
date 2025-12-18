@@ -150,9 +150,17 @@ class VerificadorCVE:
         },
     }
     
-    def __init__(self, session: Optional[requests.Session] = None, timeout: int = 10):
+    # URLs de APIs públicas de vulnerabilidades WordPress
+    URL_WORDFENCE_API = "https://www.wordfence.com/api/intelligence/v2/vulnerabilities/production"
+    URL_WPSCAN_API = "https://wpscan.com/api/v3"
+    URL_PATCHSTACK_API = "https://patchstack.com/database/api/v2"
+    
+    def __init__(self, session: Optional[requests.Session] = None, timeout: int = 10, 
+                 wpscan_api_key: Optional[str] = None):
         self.session = session
         self.timeout = timeout
+        self.wpscan_api_key = wpscan_api_key
+        self._cache_wordfence: Optional[Dict] = None  # Cache para evitar múltiples consultas
     
     def generar_enlace_cve(self, cve_id: str) -> Dict[str, str]:
         """Genera enlaces a páginas oficiales para un CVE"""
@@ -215,6 +223,185 @@ class VerificadorCVE:
         # CPE genérico para plugins/temas de WordPress
         return f"cpe:2.3:a:*:{nombre_normalizado}:*:*:*:*:*:wordpress:*:*"
     
+    def consultar_wordfence_api(self, slug: str, tipo: str = 'plugin') -> List[Dict]:
+        """
+        Consulta la API pública de Wordfence Intelligence para buscar vulnerabilidades.
+        Esta API es GRATUITA y no requiere API key.
+        
+        Args:
+            slug: Nombre/slug del plugin o tema
+            tipo: 'plugin' o 'theme'
+        
+        Devuelve:
+            Lista de vulnerabilidades encontradas
+        """
+        if not self.session:
+            return []
+        
+        try:
+            # La API de Wordfence devuelve un JSON con todas las vulnerabilidades
+            # Filtramos por el slug del componente
+            response = self.session.get(
+                self.URL_WORDFENCE_API,
+                timeout=self.timeout,
+                headers={'User-Agent': 'Fijaten-WP Security Scanner/1.0'}
+            )
+            
+            if response.status_code != 200:
+                return []
+            
+            # Cachear la respuesta para evitar múltiples consultas
+            if self._cache_wordfence is None:
+                self._cache_wordfence = response.json()
+            
+            vulnerabilidades = []
+            slug_lower = slug.lower()
+            cache_data = self._cache_wordfence or {}
+            
+            for vuln_id, vuln_data in cache_data.items():
+                software = vuln_data.get('software', [])
+                for sw in software:
+                    sw_slug = sw.get('slug', '').lower()
+                    sw_type = sw.get('type', '')
+                    
+                    if sw_slug == slug_lower and sw_type == tipo:
+                        # Determinar severidad basada en CVSS
+                        cvss = vuln_data.get('cvss', {}).get('score', 0)
+                        if cvss >= 9.0:
+                            severidad = Severidad.CRITICA
+                        elif cvss >= 7.0:
+                            severidad = Severidad.ALTA
+                        elif cvss >= 4.0:
+                            severidad = Severidad.MEDIA
+                        else:
+                            severidad = Severidad.BAJA
+                        
+                        vulnerabilidades.append({
+                            'cve': vuln_data.get('cve', vuln_id),
+                            'titulo': vuln_data.get('title', 'Vulnerabilidad conocida'),
+                            'descripcion': vuln_data.get('description', ''),
+                            'severidad': severidad,
+                            'cvss': cvss,
+                            'versiones_afectadas': sw.get('affected_versions', {}),
+                            'fecha_publicacion': vuln_data.get('published', ''),
+                            'referencias': vuln_data.get('references', []),
+                            'fuente': 'Wordfence Intelligence'
+                        })
+            
+            return vulnerabilidades
+            
+        except Exception:
+            return []
+    
+    def consultar_wpscan_api(self, slug: str, tipo: str = 'plugin') -> List[Dict]:
+        """
+        Consulta la API de WPScan para buscar vulnerabilidades.
+        Requiere API key (gratuita con límite de 25 peticiones/día).
+        
+        Args:
+            slug: Nombre/slug del plugin o tema
+            tipo: 'plugin' o 'theme'
+        
+        Devuelve:
+            Lista de vulnerabilidades encontradas
+        """
+        if not self.session or not self.wpscan_api_key:
+            return []
+        
+        try:
+            endpoint = 'plugins' if tipo == 'plugin' else 'themes'
+            url = f"{self.URL_WPSCAN_API}/{endpoint}/{slug}"
+            
+            response = self.session.get(
+                url,
+                headers={
+                    'Authorization': f'Token token={self.wpscan_api_key}',
+                    'User-Agent': 'Fijaten-WP Security Scanner/1.0'
+                },
+                timeout=self.timeout
+            )
+            
+            if response.status_code != 200:
+                return []
+            
+            data = response.json()
+            vulnerabilidades = []
+            
+            # La respuesta tiene el slug como clave
+            if slug in data and 'vulnerabilities' in data[slug]:
+                for vuln in data[slug]['vulnerabilities']:
+                    # Determinar severidad
+                    cvss = vuln.get('cvss', {}).get('score', 5.0)
+                    if cvss >= 9.0:
+                        severidad = Severidad.CRITICA
+                    elif cvss >= 7.0:
+                        severidad = Severidad.ALTA
+                    elif cvss >= 4.0:
+                        severidad = Severidad.MEDIA
+                    else:
+                        severidad = Severidad.BAJA
+                    
+                    cve_list = vuln.get('references', {}).get('cve', [])
+                    cve = cve_list[0] if cve_list else 'N/A'
+                    
+                    vulnerabilidades.append({
+                        'cve': f"CVE-{cve}" if cve != 'N/A' else vuln.get('id', 'N/A'),
+                        'titulo': vuln.get('title', 'Vulnerabilidad conocida'),
+                        'descripcion': vuln.get('description', vuln.get('title', '')),
+                        'severidad': severidad,
+                        'cvss': cvss,
+                        'versiones_afectadas': vuln.get('fixed_in', 'No especificado'),
+                        'fecha_publicacion': vuln.get('published', {}).get('date', ''),
+                        'referencias': vuln.get('references', {}).get('url', []),
+                        'fuente': 'WPScan'
+                    })
+            
+            return vulnerabilidades
+            
+        except Exception:
+            return []
+    
+    def verificar_en_apis_publicas(self, slug: str, version: Optional[str] = None, 
+                                    tipo: str = 'plugin') -> List[Dict]:
+        """
+        Verifica un plugin/tema en las APIs públicas disponibles.
+        Primero intenta Wordfence (gratuita), luego WPScan (si hay API key).
+        
+        Args:
+            slug: Nombre/slug del componente
+            version: Versión instalada (opcional)
+            tipo: 'plugin' o 'theme'
+        
+        Devuelve:
+            Lista de vulnerabilidades encontradas
+        """
+        vulnerabilidades = []
+        
+        # Consultar Wordfence (gratuita, sin límite)
+        vulns_wordfence = self.consultar_wordfence_api(slug, tipo)
+        vulnerabilidades.extend(vulns_wordfence)
+        
+        # Si hay API key de WPScan, consultar también
+        if self.wpscan_api_key:
+            vulns_wpscan = self.consultar_wpscan_api(slug, tipo)
+            # Evitar duplicados por CVE
+            cves_existentes = {v.get('cve') for v in vulnerabilidades}
+            for vuln in vulns_wpscan:
+                if vuln.get('cve') not in cves_existentes:
+                    vulnerabilidades.append(vuln)
+        
+        # Si se proporciona versión, filtrar solo las que afectan a esa versión
+        if version and vulnerabilidades:
+            vulnerabilidades = self._filtrar_por_version(vulnerabilidades, version)
+        
+        return vulnerabilidades
+    
+    def _filtrar_por_version(self, vulnerabilidades: List[Dict], version: str) -> List[Dict]:
+        """Filtra vulnerabilidades que afectan a una versión específica"""
+        # Por ahora devolvemos todas - la comparación de versiones es compleja
+        # TODO: Implementar comparación semántica de versiones
+        return vulnerabilidades
+
     def consultar_nvd_api(self, cve_id: str) -> Optional[Dict]:
         """
         Consulta la API pública de NVD para obtener información detallada de un CVE
@@ -395,63 +582,44 @@ class VerificadorCVE:
         
         return None
     
-    def consultar_wpscan_api(self, plugins: List[Tuple[str, str]], api_key: Optional[str] = None) -> List[Dict]:
-        """
-        Consulta la API de WPScan para vulnerabilidades (requiere API key gratuita)
-        https://wpscan.com/api
-        """
-        vulnerabilidades = []
-        
-        if not api_key:
-            # Sin API key, usar solo base de datos local
-            for nombre, version in plugins:
-                resultado = self.verificar_plugin(nombre, version)
-                if resultado:
-                    vulnerabilidades.append(resultado)
-            return vulnerabilidades
-        
-        # Con API key, consultar WPScan
-        headers = {'Authorization': f'Token token={api_key}'}
-        
-        if not self.session:
-            return vulnerabilidades
-        
-        for nombre, version in plugins:
-            try:
-                url = f"https://wpscan.com/api/v3/plugins/{nombre}"
-                response = self.session.get(url, headers=headers, timeout=self.timeout)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    if nombre in data and 'vulnerabilities' in data[nombre]:
-                        for vuln in data[nombre]['vulnerabilities']:
-                            vulnerabilidades.append({
-                                'plugin': nombre,
-                                'cve': vuln.get('references', {}).get('cve', ['N/A'])[0],
-                                'descripcion': vuln.get('title', 'Vulnerabilidad conocida'),
-                                'severidad': Severidad.ALTA,
-                                'version_detectada': version
-                            })
-            except Exception:
-                # Fallar silenciosamente y continuar con el siguiente
-                pass
-        
-        return vulnerabilidades
-    
     def generar_vulnerabilidades(self, plugins_detectados: List[Tuple[str, Optional[str]]], 
-                                  tema_activo: Optional[Tuple[str, Optional[str]]] = None) -> List[Vulnerabilidad]:
-        """Genera lista de vulnerabilidades encontradas con enlaces a fuentes oficiales"""
+                                  tema_activo: Optional[Tuple[str, Optional[str]]] = None,
+                                  consultar_apis: bool = True) -> List[Vulnerabilidad]:
+        """
+        Genera lista de vulnerabilidades encontradas con enlaces a fuentes oficiales.
+        
+        Args:
+            plugins_detectados: Lista de tuplas (nombre_plugin, version)
+            tema_activo: Tupla (nombre_tema, version) o None
+            consultar_apis: Si True, consulta APIs públicas (Wordfence) además de BD local
+        
+        Devuelve:
+            Lista de objetos Vulnerabilidad
+        """
         vulnerabilidades = []
         
         # Verificar plugins
         for nombre, version in plugins_detectados:
             resultado = self.verificar_plugin(nombre, version)
+            vulns_api = []
+            
+            # Consultar APIs públicas si tenemos sesión (complementa la BD local)
+            if consultar_apis and self.session:
+                vulns_api = self.verificar_en_apis_publicas(nombre, version, 'plugin')
+            
             if resultado:
-                # Construir detalles con enlaces
+                # Plugin con CVE conocido en base local
                 cvss_score = resultado.get('cvss', 0.0)
                 cvss_texto = self._formatear_cvss(cvss_score)
                 
+                # Contar vulnerabilidades adicionales de API
+                vulns_adicionales = len(vulns_api)
+                
                 detalles = f"Versión detectada: {resultado['version_detectada']}\n"
+                detalles += f"Fuente: Base de datos local"
+                if vulns_adicionales > 0:
+                    detalles += f" + {vulns_adicionales} CVEs adicionales en Wordfence"
+                detalles += "\n"
                 detalles += f"\n📊 PUNTUACIÓN CVSS: {cvss_texto}\n\n"
                 detalles += "📎 ENLACES OFICIALES DEL CVE:\n"
                 detalles += f"  • NVD: {resultado.get('url_nvd', 'N/A')}\n"
@@ -474,19 +642,104 @@ class VerificadorCVE:
                     explicacion_simple=f"El plugin {resultado['plugin']} tiene una vulnerabilidad de seguridad conocida ({resultado['cve']}) con puntuación CVSS {cvss_score}/10. Consulta los enlaces en los detalles para más información.",
                     recomendacion=f"Actualizar {resultado['plugin']} a la versión más reciente inmediatamente. Consulta {resultado.get('url_nvd', '')} para información detallada.",
                     detalles=detalles,
-                    cwe=f"{resultado['cve']}"
+                    cwe=f"{resultado['cve']}",
+                    componente=resultado['plugin']
+                ))
+            elif vulns_api:
+                # Vulnerabilidades encontradas en APIs públicas
+                for vuln_api in vulns_api:
+                    cvss_score = vuln_api.get('cvss', 0.0)
+                    cvss_texto = self._formatear_cvss(cvss_score)
+                    cve_id = vuln_api.get('cve', 'N/A')
+                    
+                    version_str = version if version else "desconocida"
+                    detalles = f"Plugin: {nombre}\n"
+                    detalles += f"Versión detectada: {version_str}\n"
+                    detalles += f"Fuente: {vuln_api.get('fuente', 'API pública')}\n"
+                    detalles += f"\n📊 PUNTUACIÓN CVSS: {cvss_texto}\n\n"
+                    
+                    if cve_id and cve_id != 'N/A':
+                        enlaces_cve = self.generar_enlace_cve(cve_id)
+                        detalles += "📎 ENLACES OFICIALES DEL CVE:\n"
+                        detalles += f"  • NVD: {enlaces_cve['nvd']}\n"
+                        detalles += f"  • MITRE: {enlaces_cve['mitre']}\n"
+                    
+                    enlaces = self.generar_enlace_cpe(None, nombre)
+                    detalles += f"\n🔍 BUSCAR MÁS VULNERABILIDADES DE '{nombre.upper()}':\n"
+                    if enlaces.get('wpscan'):
+                        detalles += f"  • WPScan: {enlaces['wpscan']}\n"
+                    if enlaces.get('patchstack'):
+                        detalles += f"  • Patchstack: {enlaces['patchstack']}\n"
+                    if enlaces.get('nvd_search'):
+                        detalles += f"  • NVD: {enlaces['nvd_search']}\n"
+                    
+                    # Referencias adicionales de la API
+                    refs = vuln_api.get('referencias', [])
+                    if refs:
+                        detalles += f"\n📚 REFERENCIAS:\n"
+                        for ref in refs[:3]:  # Máximo 3 referencias
+                            detalles += f"  • {ref}\n"
+                    
+                    vulnerabilidades.append(Vulnerabilidad(
+                        nombre=f"Vulnerabilidad en plugin: {nombre}",
+                        severidad=vuln_api.get('severidad', Severidad.MEDIA),
+                        descripcion=f"{cve_id}: {vuln_api.get('titulo', vuln_api.get('descripcion', 'Vulnerabilidad conocida'))}",
+                        explicacion_simple=f"El plugin {nombre} tiene una vulnerabilidad conocida detectada por {vuln_api.get('fuente', 'API pública')}. CVSS: {cvss_score}/10.",
+                        recomendacion=f"Actualizar {nombre} a la última versión disponible.",
+                        detalles=detalles,
+                        cwe=cve_id if cve_id != 'N/A' else '',
+                        componente=nombre
+                    ))
+            else:
+                # Plugin sin CVE conocido - generar entrada informativa con enlaces CPE
+                enlaces = self.generar_enlace_cpe(None, nombre)
+                version_str = version if version else "desconocida"
+                
+                detalles = f"Plugin: {nombre}\n"
+                detalles += f"Versión detectada: {version_str}\n\n"
+                detalles += f"🔍 BUSCAR VULNERABILIDADES DE '{nombre.upper()}':\n"
+                if enlaces.get('wpscan'):
+                    detalles += f"  • WPScan: {enlaces['wpscan']}\n"
+                if enlaces.get('patchstack'):
+                    detalles += f"  • Patchstack: {enlaces['patchstack']}\n"
+                if enlaces.get('nvd_search'):
+                    detalles += f"  • NVD: {enlaces['nvd_search']}\n"
+                if enlaces.get('exploit_db'):
+                    detalles += f"  • Exploit-DB: {enlaces['exploit_db']}\n"
+                
+                vulnerabilidades.append(Vulnerabilidad(
+                    nombre=f"Plugin detectado: {nombre}",
+                    severidad=Severidad.INFO,
+                    descripcion=f"Plugin '{nombre}' detectado (versión: {version_str}). No se encontraron vulnerabilidades conocidas.",
+                    explicacion_simple=f"Se detectó el plugin {nombre}. Usa los enlaces para buscar posibles vulnerabilidades en bases de datos de seguridad.",
+                    recomendacion=f"Mantener {nombre} actualizado a la última versión y consultar regularmente las bases de datos de seguridad.",
+                    detalles=detalles,
+                    componente=nombre
                 ))
         
         # Verificar tema
         if tema_activo:
             nombre_tema, version_tema = tema_activo
             resultado = self.verificar_tema(nombre_tema, version_tema)
+            vulns_api_tema = []
+            
+            # Consultar APIs públicas si tenemos sesión (complementa la BD local)
+            if consultar_apis and self.session:
+                vulns_api_tema = self.verificar_en_apis_publicas(nombre_tema, version_tema, 'theme')
+            
             if resultado:
-                # Construir detalles con enlaces
+                # Tema con CVE conocido en base local
                 cvss_score = resultado.get('cvss', 0.0)
                 cvss_texto = self._formatear_cvss(cvss_score)
                 
+                # Contar vulnerabilidades adicionales de API
+                vulns_adicionales = len(vulns_api_tema)
+                
                 detalles = f"Versión detectada: {resultado['version_detectada']}\n"
+                detalles += f"Fuente: Base de datos local"
+                if vulns_adicionales > 0:
+                    detalles += f" + {vulns_adicionales} CVEs adicionales en Wordfence"
+                detalles += "\n"
                 detalles += f"\n📊 PUNTUACIÓN CVSS: {cvss_texto}\n\n"
                 detalles += "📎 ENLACES OFICIALES DEL CVE:\n"
                 detalles += f"  • NVD: {resultado.get('url_nvd', 'N/A')}\n"
@@ -509,7 +762,72 @@ class VerificadorCVE:
                     explicacion_simple=f"El tema {resultado['tema']} tiene una vulnerabilidad de seguridad conocida ({resultado['cve']}) con puntuación CVSS {cvss_score}/10. Consulta los enlaces en los detalles para más información.",
                     recomendacion=f"Actualizar el tema a la versión más reciente o cambiar a otro tema. Consulta {resultado.get('url_nvd', '')} para información detallada.",
                     detalles=detalles,
-                    cwe=f"{resultado['cve']}"
+                    cwe=f"{resultado['cve']}",
+                    componente=resultado['tema']
+                ))
+            elif vulns_api_tema:
+                # Vulnerabilidades encontradas en APIs públicas
+                for vuln_api in vulns_api_tema:
+                    cvss_score = vuln_api.get('cvss', 0.0)
+                    cvss_texto = self._formatear_cvss(cvss_score)
+                    cve_id = vuln_api.get('cve', 'N/A')
+                    
+                    version_str = version_tema if version_tema else "desconocida"
+                    detalles = f"Tema: {nombre_tema}\n"
+                    detalles += f"Versión detectada: {version_str}\n"
+                    detalles += f"Fuente: {vuln_api.get('fuente', 'API pública')}\n"
+                    detalles += f"\n📊 PUNTUACIÓN CVSS: {cvss_texto}\n\n"
+                    
+                    if cve_id and cve_id != 'N/A':
+                        enlaces_cve = self.generar_enlace_cve(cve_id)
+                        detalles += "📎 ENLACES OFICIALES DEL CVE:\n"
+                        detalles += f"  • NVD: {enlaces_cve['nvd']}\n"
+                        detalles += f"  • MITRE: {enlaces_cve['mitre']}\n"
+                    
+                    enlaces = self.generar_enlace_cpe(None, nombre_tema)
+                    detalles += f"\n🔍 BUSCAR MÁS VULNERABILIDADES DE '{nombre_tema.upper()}':\n"
+                    if enlaces.get('wpscan'):
+                        detalles += f"  • WPScan: {enlaces['wpscan']}\n"
+                    if enlaces.get('patchstack'):
+                        detalles += f"  • Patchstack: {enlaces['patchstack']}\n"
+                    if enlaces.get('nvd_search'):
+                        detalles += f"  • NVD: {enlaces['nvd_search']}\n"
+                    
+                    vulnerabilidades.append(Vulnerabilidad(
+                        nombre=f"Vulnerabilidad en tema: {nombre_tema}",
+                        severidad=vuln_api.get('severidad', Severidad.MEDIA),
+                        descripcion=f"{cve_id}: {vuln_api.get('titulo', vuln_api.get('descripcion', 'Vulnerabilidad conocida'))}",
+                        explicacion_simple=f"El tema {nombre_tema} tiene una vulnerabilidad conocida detectada por {vuln_api.get('fuente', 'API pública')}. CVSS: {cvss_score}/10.",
+                        recomendacion=f"Actualizar {nombre_tema} a la última versión o cambiar de tema.",
+                        detalles=detalles,
+                        cwe=cve_id if cve_id != 'N/A' else '',
+                        componente=nombre_tema
+                    ))
+            else:
+                # Tema sin CVE conocido - generar entrada informativa con enlaces CPE
+                enlaces = self.generar_enlace_cpe(None, nombre_tema)
+                version_str = version_tema if version_tema else "desconocida"
+                
+                detalles = f"Tema: {nombre_tema}\n"
+                detalles += f"Versión detectada: {version_str}\n\n"
+                detalles += f"🔍 BUSCAR VULNERABILIDADES DE '{nombre_tema.upper()}':\n"
+                if enlaces.get('wpscan'):
+                    detalles += f"  • WPScan: {enlaces['wpscan']}\n"
+                if enlaces.get('patchstack'):
+                    detalles += f"  • Patchstack: {enlaces['patchstack']}\n"
+                if enlaces.get('nvd_search'):
+                    detalles += f"  • NVD: {enlaces['nvd_search']}\n"
+                if enlaces.get('exploit_db'):
+                    detalles += f"  • Exploit-DB: {enlaces['exploit_db']}\n"
+                
+                vulnerabilidades.append(Vulnerabilidad(
+                    nombre=f"Tema detectado: {nombre_tema}",
+                    severidad=Severidad.INFO,
+                    descripcion=f"Tema '{nombre_tema}' detectado (versión: {version_str}). No se encontraron vulnerabilidades conocidas.",
+                    explicacion_simple=f"Se detectó el tema {nombre_tema}. Usa los enlaces para buscar posibles vulnerabilidades en bases de datos de seguridad.",
+                    recomendacion=f"Mantener {nombre_tema} actualizado a la última versión y consultar regularmente las bases de datos de seguridad.",
+                    detalles=detalles,
+                    componente=nombre_tema
                 ))
         
         return vulnerabilidades
