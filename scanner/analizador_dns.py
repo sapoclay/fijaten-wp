@@ -6,7 +6,7 @@ Obtiene información adicional del dominio
 import socket
 import re
 import requests
-from typing import Dict, Optional, List
+from typing import Dict, List
 from .modelos import Vulnerabilidad, Severidad, InfoDNS, InfoWHOIS
 
 class AnalizadorDNS:
@@ -81,12 +81,6 @@ class AnalizadorDNS:
         """Obtiene información WHOIS del dominio usando APIs públicas"""
         dominio_limpio = self._limpiar_dominio(dominio)
         info = InfoWHOIS()
-        
-        # Usar API pública de whois (hay varias opciones)
-        apis_whois = [
-            f"https://www.whoisxmlapi.com/whoisserver/WhoisService?domainName={dominio_limpio}&outputFormat=JSON",
-            # Esta API requiere registro pero tiene tier gratuito
-        ]
         
         # Intentar obtener WHOIS básico mediante socket (puerto 43)
         try:

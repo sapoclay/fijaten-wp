@@ -5,7 +5,7 @@ Identifica el CMS, framework o tecnología utilizada por un sitio web
 
 import requests
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 

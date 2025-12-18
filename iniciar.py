@@ -19,7 +19,6 @@ import shutil
 import hashlib
 import signal
 from pathlib import Path
-from typing import Optional
 
 # Constantes
 APP_NAME = "Fijaten-WP"
@@ -115,7 +114,7 @@ def check_python_version() -> bool:
 def check_tkinter_available() -> bool:
     """Verifica que tkinter esté disponible"""
     try:
-        import tkinter
+        import tkinter  # noqa: F401
         return True
     except ImportError:
         print_status("tkinter no está instalado.", "error")

@@ -8,7 +8,7 @@ import tkinter as tk
 import platform
 from typing import Callable, Optional
 
-from gui.gestor_temas import obtener_gestor_temas, TEMAS_APARIENCIA
+from gui.gestor_temas import obtener_gestor_temas
 from gui.notificaciones import obtener_notificador
 from gui.dialogo_atajos import DialogoAtajos
 

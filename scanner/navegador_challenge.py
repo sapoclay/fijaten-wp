@@ -13,14 +13,21 @@ from urllib.parse import urlparse
 
 # Patrones de detección de WAF/Challenge
 PATRONES_WAF = {
-    'Cloudflare': ['cloudflare', '__cf_bm', 'cf-browser-verification', '__cf_chl_'],
-    'Sucuri WAF': ['sucuri', 'sucuri-bg'],
-    'OpenResty/Nginx WAF': ['openresty'],
-    'Wordfence': ['wordfence', 'wfwaf-'],
-    'WAF genérico': ['ddos protection', 'checking your browser', 'challenge-platform'],
+    'Cloudflare': ['cloudflare', '__cf_bm', 'cf-browser-verification', '__cf_chl_', 'cf_clearance'],
+    'Sucuri WAF': ['sucuri', 'sucuri-bg', 'sucuri_cloudproxy'],
+    'OpenResty/Nginx WAF': ['openresty', 'nginx/1.', 'powered by openresty'],
+    'Wordfence': ['wordfence', 'wfwaf-', 'wordfence-ls'],
+    'Akamai': ['akamai', '_abck', 'ak_bmsc'],
+    'Imperva/Incapsula': ['incapsula', 'incap_ses', 'visid_incap', '_incapsula_'],
+    'AWS WAF': ['awsalb', 'x-amz-', 'x-amzn-'],
+    'ModSecurity': ['mod_security', 'modsecurity', 'not acceptable!'],
+    'WAF genérico': ['ddos protection', 'checking your browser', 'challenge-platform', 'access denied'],
 }
 
-TITULOS_CHALLENGE = ['un momento', 'just a moment', 'please wait', 'checking', 'ddos']
+# WAFs que requieren más tiempo o son más agresivos
+WAFS_AGRESIVOS = ['OpenResty/Nginx WAF', 'Akamai', 'Imperva/Incapsula', 'AWS WAF']
+
+TITULOS_CHALLENGE = ['un momento', 'just a moment', 'please wait', 'checking', 'ddos', 'verifying', 'espere']
 
 INDICADORES_CHALLENGE = [
     'settimeout(function(){', 'window.location.reload()', 'location.reload()',
@@ -45,12 +52,12 @@ class NavegadorChallenge:
         faltantes = []
         
         try:
-            import selenium
+            import selenium  # noqa: F401
         except ImportError:
             faltantes.append('selenium')
         
         try:
-            import undetected_chromedriver
+            import undetected_chromedriver  # noqa: F401
         except ImportError:
             faltantes.append('undetected-chromedriver')
         
@@ -198,7 +205,56 @@ class NavegadorChallenge:
         if 'un momento' in titulo_lower and 'reload' in html_lower:
             return 'OpenResty/Nginx WAF'
         
+        # Caso especial: verificación genérica con JavaScript
+        if 'settimeout' in html_lower and 'location' in html_lower:
+            return 'WAF con JavaScript'
+        
         return 'Desconocido'
+    
+    def _obtener_consejos_waf(self, tipo_waf: str) -> str:
+        """Devuelve consejos específicos para cada tipo de WAF"""
+        consejos = {
+            'OpenResty/Nginx WAF': (
+                "OpenResty usa verificación del lado del servidor que es muy difícil de pasar automáticamente. "
+                "Alternativas: 1) Añadir tu IP a la lista blanca del servidor, "
+                "2) Acceder manualmente y copiar las cookies, "
+                "3) Usar una VPN diferente, "
+                "4) Contactar al administrador del sitio."
+            ),
+            'Cloudflare': (
+                "Cloudflare tiene un challenge JavaScript avanzado. "
+                "Puedes intentar: 1) Esperar unos segundos y reintentar, "
+                "2) Verificar que no estás en una lista negra de IPs, "
+                "3) Usar un navegador real para obtener la cookie cf_clearance."
+            ),
+            'Akamai': (
+                "Akamai Bot Manager es muy estricto. "
+                "Alternativas: 1) Usar una conexión residencial (no datacenter), "
+                "2) Reducir la velocidad de las peticiones, "
+                "3) Acceder primero manualmente."
+            ),
+            'Imperva/Incapsula': (
+                "Imperva usa análisis de comportamiento avanzado. "
+                "Sugerencias: 1) Acceder manualmente primero, "
+                "2) Verificar que la IP no esté en una lista negra."
+            ),
+            'AWS WAF': (
+                "AWS WAF puede estar configurado de forma muy restrictiva. "
+                "Intenta: 1) Cambiar de red/IP, 2) Contactar al administrador."
+            ),
+            'Sucuri WAF': (
+                "Sucuri tiene buena protección pero suele ser pasable. "
+                "Intenta: 1) Esperar más tiempo, 2) Reintentar después de unos minutos."
+            ),
+            'Wordfence': (
+                "Wordfence puede bloquear por comportamiento sospechoso. "
+                "Espera unos minutos e intenta de nuevo, o usa una IP diferente."
+            ),
+        }
+        
+        return consejos.get(tipo_waf, 
+            "Este tipo de protección puede requerir intervención manual o un navegador en modo visible."
+        )
     
     def _es_pagina_challenge(self, html: str, titulo: str) -> bool:
         """Verifica si el contenido es una página de challenge"""
@@ -219,8 +275,8 @@ class NavegadorChallenge:
         
         return False
     
-    def pasar_challenge(self, url: str, max_intentos: int = 5, 
-                        espera_challenge: int = 15) -> Tuple[bool, Dict]:
+    def pasar_challenge(self, url: str, max_intentos: int = 8, 
+                        espera_challenge: int = 20) -> Tuple[bool, Dict]:
         """
         Intenta pasar el challenge JavaScript de un sitio
         
@@ -256,27 +312,61 @@ class NavegadorChallenge:
                     resultado['cookies'][cookie['name']] = cookie['value']
                 return True, resultado
             
+            # Determinar si es un WAF agresivo que necesita más tiempo
+            es_waf_agresivo = resultado['tipo_waf'] in WAFS_AGRESIVOS
+            intentos_extra = 3 if es_waf_agresivo else 0
+            espera_extra = 10 if es_waf_agresivo else 0
+            
             # Intentar esperar a que se resuelva el challenge
             html = html_inicial
-            for intento in range(max_intentos):
-                wait_time = 5 if intento < 2 else espera_challenge
+            total_intentos = max_intentos + intentos_extra
+            
+            for intento in range(total_intentos):
+                # Escala progresiva de tiempos de espera
+                if intento < 2:
+                    wait_time = 5
+                elif intento < 5:
+                    wait_time = espera_challenge
+                else:
+                    wait_time = espera_challenge + espera_extra
+                
                 time.sleep(wait_time)
+                
+                # Verificar si la URL cambió (redirect después del challenge)
+                url_actual = self.driver.current_url
                 
                 html = self.driver.page_source
                 titulo = self.driver.title
                 
+                # Verificar éxito
                 if not self._es_pagina_challenge(html, titulo) and len(html) > 2000:
                     resultado['html'] = html
-                    resultado['url_final'] = self.driver.current_url
+                    resultado['url_final'] = url_actual
                     for cookie in self.driver.get_cookies():
                         resultado['cookies'][cookie['name']] = cookie['value']
                     return True, resultado
+                
+                # Intentar scroll y movimientos para parecer más humano
+                if intento == 3:
+                    try:
+                        self.driver.execute_script("window.scrollTo(0, 100);")
+                        time.sleep(1)
+                        self.driver.execute_script("window.scrollTo(0, 0);")
+                    except Exception:
+                        pass
+                
+                # Intentar recargar después de varios intentos fallidos
+                if intento == 5 and es_waf_agresivo:
+                    try:
+                        self.driver.refresh()
+                    except Exception:
+                        pass
             
-            # No pudimos pasar el challenge
+            # No pudimos pasar el challenge - dar consejos específicos
+            consejos = self._obtener_consejos_waf(resultado['tipo_waf'])
             error_msg = (
-                f'No se pudo pasar el challenge de {resultado["tipo_waf"]}. '
-                f'Este tipo de protección es muy agresiva y puede requerir '
-                f'intervención manual o un navegador en modo visible.'
+                f'No se pudo pasar el challenge de {resultado["tipo_waf"]} después de '
+                f'{total_intentos} intentos. {consejos}'
             )
             resultado['error'] = error_msg
             resultado['html'] = html

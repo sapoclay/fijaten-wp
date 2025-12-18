@@ -6,7 +6,7 @@ Widgets y componentes reutilizables
 import customtkinter as ctk
 import webbrowser
 import re
-from typing import Callable, Optional
+from typing import Callable
 
 
 class FrameCabecera(ctk.CTkFrame):
@@ -279,11 +279,8 @@ class FrameResultados(ctk.CTkFrame):
     
     def _obtener_fuente_mono(self) -> str:
         """Obtiene la primera fuente monoespaciada disponible en el sistema"""
-        import tkinter as tk
         import tkinter.font as tkfont
         
-        # Crear ventana temporal para consultar fuentes
-        temp_root = None
         try:
             # Intentar obtener las fuentes disponibles
             fuentes_disponibles = tkfont.families()
@@ -351,7 +348,7 @@ class FrameResultados(ctk.CTkFrame):
                             stderr=subprocess.DEVNULL,
                             start_new_session=True
                         )
-                except Exception as e:
+                except Exception:
                     # Fallback a webbrowser
                     webbrowser.open(url)
                 break

@@ -3,10 +3,9 @@ Fijaten-WP - Historial de Escaneos
 Guarda y compara escaneos anteriores del mismo sitio
 """
 
-import os
 import json
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from pathlib import Path
 import hashlib
 

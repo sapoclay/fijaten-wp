@@ -8,7 +8,7 @@ import threading
 from pathlib import Path
 from PIL import Image
 import sys
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 # Añadir directorio al path
 sys.path.insert(0, str(Path(__file__).parent.parent))

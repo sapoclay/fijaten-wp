@@ -5,9 +5,8 @@ Manejo de modo claro/oscuro y persistencia del tema
 
 import customtkinter as ctk
 import json
-import os
 from pathlib import Path
-from typing import Callable, Optional, List
+from typing import Callable, List
 
 # Archivo de configuración del tema
 ARCHIVO_CONFIG_TEMA = Path(__file__).parent.parent / "tema_config.json"

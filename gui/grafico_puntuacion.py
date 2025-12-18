@@ -5,7 +5,6 @@ Widget de visualización circular de la puntuación de seguridad
 
 import customtkinter as ctk
 import math
-from typing import Optional
 
 
 class GraficoPuntuacion(ctk.CTkCanvas):

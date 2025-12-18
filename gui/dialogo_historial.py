@@ -6,7 +6,6 @@ Interfaz para ver y comparar escaneos anteriores
 import customtkinter as ctk
 from tkinter import messagebox
 from typing import Optional, Callable
-from datetime import datetime
 
 from gui.historial_escaneos import obtener_historial
 

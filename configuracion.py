@@ -2,7 +2,6 @@
 Fijaten-WP - Configuración y Constantes
 """
 
-import os
 from pathlib import Path
 
 # Información de la aplicación

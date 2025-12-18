@@ -9,10 +9,9 @@ import ssl
 import socket
 import uuid
 import difflib
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional, Tuple
-import concurrent.futures
 
 # Importar clases desde modelos
 from .modelos import Severidad, Vulnerabilidad
@@ -856,7 +855,7 @@ class AnalizadorWordPress:
                 detalles=str(e),
                 cwe="CWE-295: Validación incorrecta de certificado"
             ))
-        except Exception as e:
+        except Exception:
             self.info_sitio['ssl_valido'] = False
     
     def verificar_xmlrpc(self):
@@ -1240,7 +1239,6 @@ class AnalizadorWordPress:
             return
         
         contenido = response.text or ''
-        content_type = (response.headers.get('Content-Type') or '').lower()
         
         # wp-cron real: cuerpo vacío o muy corto, sin HTML
         # Falso positivo: HTML de error/challenge, página larga
@@ -2133,15 +2131,6 @@ class AnalizadorWordPress:
     def verificar_proteccion_csrf(self):
         """Verifica si los formularios tienen protección CSRF"""
         self._registrar_mensaje("🛡️ Verificando protección CSRF en formularios...")
-        
-        # Páginas a verificar
-        paginas_formularios = [
-            (f"{self.dominio}/wp-login.php", "Login"),
-            (f"{self.dominio}/wp-comments-post.php", "Comentarios"),
-            (f"{self.dominio}/?page_id=", "Páginas"),
-            (f"{self.dominio}/contacto/", "Contacto"),
-            (f"{self.dominio}/contact/", "Contact"),
-        ]
         
         formularios_sin_csrf = []
         formularios_analizados = 0

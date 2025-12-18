@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from configuracion import (
     APP_NAME, WINDOW_TITLE, WINDOW_SIZE, WINDOW_MIN_SIZE,
-    THEME_MODE, THEME_COLOR, MESSAGES
+    MESSAGES
 )
 from scanner.analizador_vulnerabilidades import AnalizadorWordPress
 from scanner.generador_informes import GeneradorInformes
@@ -31,7 +31,6 @@ from gui.notificaciones import notificar_escaneo_completado
 from gui.historial_escaneos import obtener_historial
 from gui.exportador_pdf import obtener_exportador_pdf
 from gui.exportador_html import obtener_exportador_html
-from gui.grafico_puntuacion import FrameGraficoPuntuacion
 from gui.icono_bandeja import crear_icono_bandeja
 
 # Inicializar gestor de temas (aplica el tema guardado)
@@ -266,8 +265,8 @@ class VentanaPrincipal(ctk.CTk):
                 self.puntuacion_actual
             ))
             
-        except Exception as e:
-            self.after(0, lambda: self._mostrar_error(f"Error durante el análisis: {str(e)}"))
+        except Exception:
+            self.after(0, lambda: self._mostrar_error(f"Error durante el análisis"))
         finally:
             self.after(0, self._finalizar_escaneo)
     
@@ -488,10 +487,34 @@ Como este sitio no es WordPress, considera:
         
         # Consejos específicos según el tipo de WAF
         consejos_waf = {
-            'Cloudflare': "Si tienes acceso al panel de Cloudflare, desactiva temporalmente 'Under Attack Mode'.",
-            'OpenResty/Nginx WAF': "Este WAF usa verificación JavaScript del lado del servidor. Requiere lista blanca de IP.",
-            'Sucuri WAF': "Contacta con el administrador para añadir tu IP a la lista blanca de Sucuri.",
-            'Wordfence': "Wordfence puede configurarse para permitir ciertos user-agents o IPs.",
+            'Cloudflare': (
+                "Si tienes acceso al panel de Cloudflare, desactiva temporalmente 'Under Attack Mode' "
+                "o añade tu IP a las reglas de acceso."
+            ),
+            'OpenResty/Nginx WAF': (
+                "Este WAF usa verificación JavaScript del lado del servidor que es muy difícil de pasar. "
+                "Necesitas añadir tu IP a la lista blanca en la configuración del servidor Nginx/OpenResty."
+            ),
+            'Sucuri WAF': (
+                "Contacta con el administrador para añadir tu IP a la lista blanca de Sucuri o "
+                "solicita una regla de excepción temporal."
+            ),
+            'Wordfence': (
+                "Wordfence puede configurarse para permitir ciertos user-agents o IPs. "
+                "Accede a wp-admin > Wordfence > Firewall > Blocking para gestionar excepciones."
+            ),
+            'Akamai': (
+                "Akamai Bot Manager es muy estricto. Necesitas acceso administrativo para "
+                "añadir excepciones o usar una conexión desde una IP residencial."
+            ),
+            'Imperva/Incapsula': (
+                "Imperva usa análisis de comportamiento avanzado. Contacta al administrador "
+                "para configurar reglas de excepción."
+            ),
+            'AWS WAF': (
+                "AWS WAF puede estar bloqueando por país, IP o patrones. Revisa las reglas "
+                "en la consola de AWS o contacta al administrador."
+            ),
         }
         
         consejo_especifico = consejos_waf.get(tipo_waf, "")

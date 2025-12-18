@@ -7,7 +7,6 @@ import platform
 import subprocess
 import json
 from pathlib import Path
-from typing import Optional
 
 # Archivo de configuración de notificaciones
 ARCHIVO_CONFIG_NOTIF = Path(__file__).parent.parent / "notificaciones_config.json"

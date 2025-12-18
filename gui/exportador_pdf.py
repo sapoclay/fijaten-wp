@@ -3,10 +3,8 @@ Fijaten-WP - Exportador PDF
 Genera informes en formato PDF profesional
 """
 
-import os
 from datetime import datetime
-from typing import List, Dict, Optional, TYPE_CHECKING, Any
-from pathlib import Path
+from typing import List, Dict, Any
 
 # Variables para almacenar los módulos de reportlab
 colors: Any = None
@@ -34,7 +32,7 @@ Wedge: Any = None
 REPORTLAB_DISPONIBLE = False
 try:
     from reportlab.lib import colors as _colors
-    from reportlab.lib.pagesizes import A4 as _A4, letter as _letter
+    from reportlab.lib.pagesizes import A4 as _A4
     from reportlab.lib.styles import getSampleStyleSheet as _getSampleStyleSheet, ParagraphStyle as _ParagraphStyle
     from reportlab.lib.units import cm as _cm, mm as _mm
     from reportlab.platypus import (
@@ -383,16 +381,12 @@ class ExportadorPDF:
         # Determinar color según puntuación
         if puntuacion >= 80:
             color_principal = colors.HexColor('#16a34a')  # Verde
-            estado = "EXCELENTE"
         elif puntuacion >= 60:
             color_principal = colors.HexColor('#ca8a04')  # Amarillo
-            estado = "ACEPTABLE"
         elif puntuacion >= 40:
             color_principal = colors.HexColor('#ea580c')  # Naranja
-            estado = "PREOCUPANTE"
         else:
             color_principal = colors.HexColor('#dc2626')  # Rojo
-            estado = "CRÍTICO"
         
         # Crear dibujo
         drawing = Drawing(400, 120)

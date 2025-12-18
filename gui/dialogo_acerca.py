@@ -8,7 +8,6 @@ import webbrowser
 from PIL import Image
 from pathlib import Path
 import sys
-import os
 
 # Añadir directorio padre al path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -109,7 +108,7 @@ class DialogoAcerca(ctk.CTkToplevel):
             else:
                 # Logo de texto si no existe la imagen
                 self._crear_logo_texto(logo_frame)
-        except Exception as e:
+        except Exception:
             # Logo de texto como fallback
             self._crear_logo_texto(logo_frame)
         

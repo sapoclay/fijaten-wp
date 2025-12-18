@@ -3,10 +3,8 @@ Fijaten-WP - Exportador HTML
 Genera informes visuales en formato HTML con gráficos y estilos
 """
 
-import os
 from datetime import datetime
 from typing import List, Dict
-from pathlib import Path
 import html
 
 
@@ -42,19 +40,15 @@ class ExportadorHTML:
             if puntuacion >= 80:
                 color_puntuacion = "#16a34a"
                 estado = "EXCELENTE"
-                gradiente = "from-green-500 to-green-600"
             elif puntuacion >= 60:
                 color_puntuacion = "#ca8a04"
                 estado = "ACEPTABLE"
-                gradiente = "from-yellow-500 to-yellow-600"
             elif puntuacion >= 40:
                 color_puntuacion = "#ea580c"
                 estado = "PREOCUPANTE"
-                gradiente = "from-orange-500 to-orange-600"
             else:
                 color_puntuacion = "#dc2626"
                 estado = "CRÍTICO"
-                gradiente = "from-red-500 to-red-600"
                 
             
             # Generar HTML de vulnerabilidades
@@ -62,9 +56,6 @@ class ExportadorHTML:
             
             # Generar HTML de información del sitio
             html_info_sitio = self._generar_html_info_sitio(info_sitio)
-            
-            # Calcular porcentajes para el gráfico circular
-            total_vulns = sum(conteo_severidad.values())
             
             contenido_html = f'''<!DOCTYPE html>
 <html lang="es">

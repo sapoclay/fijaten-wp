@@ -4,7 +4,7 @@ Clases y estructuras de datos compartidas
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional
+from typing import List, Optional
 from enum import Enum
 
 

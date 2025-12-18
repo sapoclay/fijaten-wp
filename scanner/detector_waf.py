@@ -4,8 +4,7 @@ Detecta si el sitio está protegido por un firewall de aplicación web para toma
 """
 
 import requests
-import re
-from typing import Dict, Optional, List
+from typing import Dict, List
 from .modelos import Vulnerabilidad, Severidad
 
 
